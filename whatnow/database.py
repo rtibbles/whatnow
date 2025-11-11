@@ -9,7 +9,7 @@ import json
 from sqlalchemy import create_engine, select, and_
 from sqlalchemy.orm import Session, sessionmaker
 
-from .models import Base, Ping, GitHubTask, CalendarEvent, SyncMetadata, Config
+from .models import Base, Ping, GitHubTask, CalendarEvent, SyncMetadata, Config, WorkSession, LocalTODO
 
 
 class Database:
@@ -45,15 +45,20 @@ class Database:
         return self.SessionLocal()
 
     # Ping operations
-    def add_ping(self, timestamp: int, activity: str, tags: Optional[List[str]] = None,
-                 notes: Optional[str] = None) -> int:
+    def add_ping(self, timestamp: int, todo_id: Optional[str] = None,
+                 todo_type: Optional[str] = None, tags: Optional[List[str]] = None,
+                 notes: Optional[str] = None, event_id: Optional[str] = None,
+                 is_meeting: bool = False) -> int:
         """Add a new ping to the database.
 
         Args:
             timestamp: Unix timestamp of the ping
-            activity: Activity description
+            todo_id: ID of associated TODO (GitHub task ID or local TODO ID)
+            todo_type: Type of TODO ('github', 'local', 'meeting')
             tags: Optional list of tags
             notes: Optional additional notes
+            event_id: Calendar event ID if this is a meeting ping
+            is_meeting: Whether this ping is for a meeting
 
         Returns:
             ID of the inserted ping
@@ -61,9 +66,12 @@ class Database:
         with self.get_session() as session:
             ping = Ping(
                 timestamp=timestamp,
-                activity=activity,
+                todo_id=todo_id,
+                todo_type=todo_type,
                 tags=tags,
-                notes=notes
+                notes=notes,
+                event_id=event_id,
+                is_meeting=is_meeting
             )
             session.add(ping)
             session.commit()
@@ -88,9 +96,12 @@ class Database:
                 {
                     'id': p.id,
                     'timestamp': p.timestamp,
-                    'activity': p.activity,
+                    'todo_id': p.todo_id,
+                    'todo_type': p.todo_type,
                     'tags': p.tags or [],
                     'notes': p.notes,
+                    'event_id': p.event_id,
+                    'is_meeting': p.is_meeting,
                     'created_at': p.created_at
                 }
                 for p in pings
@@ -118,13 +129,294 @@ class Database:
                 {
                     'id': p.id,
                     'timestamp': p.timestamp,
-                    'activity': p.activity,
+                    'todo_id': p.todo_id,
+                    'todo_type': p.todo_type,
                     'tags': p.tags or [],
                     'notes': p.notes,
+                    'event_id': p.event_id,
+                    'is_meeting': p.is_meeting,
                     'created_at': p.created_at
                 }
                 for p in pings
             ]
+
+    # Work session operations
+    def start_work_session(self) -> int:
+        """Start a new work session.
+
+        Returns:
+            ID of the work session
+        """
+        with self.get_session() as session:
+            now = int(datetime.now().timestamp())
+            work_session = WorkSession(start_time=now)
+            session.add(work_session)
+            session.commit()
+            session.refresh(work_session)
+            return work_session.id
+
+    def end_work_session(self) -> Optional[int]:
+        """End the current work session.
+
+        Returns:
+            Total seconds worked, or None if no active session
+        """
+        with self.get_session() as session:
+            # Find active work session (no end_time)
+            stmt = select(WorkSession).where(WorkSession.end_time == None).order_by(WorkSession.start_time.desc())
+            result = session.execute(stmt).scalars().first()
+
+            if result:
+                now = int(datetime.now().timestamp())
+                result.end_time = now
+                result.total_seconds = now - result.start_time
+                session.commit()
+                return result.total_seconds
+
+            return None
+
+    def get_current_work_session(self) -> Optional[Dict[str, Any]]:
+        """Get the current active work session.
+
+        Returns:
+            Work session dictionary or None if not working
+        """
+        with self.get_session() as session:
+            stmt = select(WorkSession).where(WorkSession.end_time == None).order_by(WorkSession.start_time.desc())
+            result = session.execute(stmt).scalars().first()
+
+            if result:
+                return {
+                    'id': result.id,
+                    'start_time': result.start_time,
+                    'end_time': result.end_time,
+                    'total_seconds': result.total_seconds
+                }
+
+            return None
+
+    def is_working(self) -> bool:
+        """Check if currently in a work session.
+
+        Returns:
+            True if working, False otherwise
+        """
+        return self.get_current_work_session() is not None
+
+    def get_work_sessions_by_date(self, date_timestamp: int) -> List[Dict[str, Any]]:
+        """Get work sessions for a specific day.
+
+        Args:
+            date_timestamp: Unix timestamp within the desired day
+
+        Returns:
+            List of work session dictionaries
+        """
+        # Get start and end of day
+        dt = datetime.fromtimestamp(date_timestamp)
+        day_start = datetime(dt.year, dt.month, dt.day, 0, 0, 0)
+        day_end = datetime(dt.year, dt.month, dt.day, 23, 59, 59)
+
+        start_ts = int(day_start.timestamp())
+        end_ts = int(day_end.timestamp())
+
+        with self.get_session() as session:
+            stmt = (
+                select(WorkSession)
+                .where(and_(
+                    WorkSession.start_time >= start_ts,
+                    WorkSession.start_time <= end_ts
+                ))
+                .order_by(WorkSession.start_time)
+            )
+            sessions = session.execute(stmt).scalars().all()
+
+            return [
+                {
+                    'id': s.id,
+                    'start_time': s.start_time,
+                    'end_time': s.end_time,
+                    'total_seconds': s.total_seconds
+                }
+                for s in sessions
+            ]
+
+    def get_total_work_seconds_for_day(self, date_timestamp: int) -> int:
+        """Get total seconds worked on a specific day.
+
+        Args:
+            date_timestamp: Unix timestamp within the desired day
+
+        Returns:
+            Total seconds worked
+        """
+        sessions = self.get_work_sessions_by_date(date_timestamp)
+        total = sum(s.get('total_seconds', 0) for s in sessions if s.get('total_seconds'))
+
+        # Add current session if active and started today
+        current = self.get_current_work_session()
+        if current:
+            dt = datetime.fromtimestamp(date_timestamp)
+            current_dt = datetime.fromtimestamp(current['start_time'])
+            if current_dt.date() == dt.date():
+                now = int(datetime.now().timestamp())
+                total += (now - current['start_time'])
+
+        return total
+
+    # Local TODO operations
+    def add_local_todo(self, text: str, tags: Optional[List[str]] = None) -> int:
+        """Add a new local TODO.
+
+        Args:
+            text: TODO text
+            tags: Optional list of tags
+
+        Returns:
+            ID of the TODO
+        """
+        with self.get_session() as session:
+            todo = LocalTODO(text=text, tags=tags or [])
+            session.add(todo)
+            session.commit()
+            session.refresh(todo)
+            return todo.id
+
+    def get_local_todos(self, active_only: bool = True) -> List[Dict[str, Any]]:
+        """Get local TODOs.
+
+        Args:
+            active_only: If True, only return active TODOs
+
+        Returns:
+            List of TODO dictionaries
+        """
+        with self.get_session() as session:
+            stmt = select(LocalTODO).order_by(LocalTODO.created_at.desc())
+
+            if active_only:
+                stmt = stmt.where(LocalTODO.is_active == 1)
+
+            todos = session.execute(stmt).scalars().all()
+
+            return [
+                {
+                    'id': t.id,
+                    'text': t.text,
+                    'tags': t.tags or [],
+                    'is_active': bool(t.is_active),
+                    'created_at': t.created_at,
+                    'completed_at': t.completed_at
+                }
+                for t in todos
+            ]
+
+    def get_local_todo(self, todo_id: int) -> Optional[Dict[str, Any]]:
+        """Get a specific local TODO.
+
+        Args:
+            todo_id: TODO ID
+
+        Returns:
+            TODO dictionary or None
+        """
+        with self.get_session() as session:
+            todo = session.get(LocalTODO, todo_id)
+
+            if todo:
+                return {
+                    'id': todo.id,
+                    'text': todo.text,
+                    'tags': todo.tags or [],
+                    'is_active': bool(todo.is_active),
+                    'created_at': todo.created_at,
+                    'completed_at': todo.completed_at
+                }
+
+            return None
+
+    def update_local_todo(self, todo_id: int, text: Optional[str] = None,
+                         tags: Optional[List[str]] = None):
+        """Update a local TODO.
+
+        Args:
+            todo_id: TODO ID
+            text: New text (if provided)
+            tags: New tags (if provided)
+        """
+        with self.get_session() as session:
+            todo = session.get(LocalTODO, todo_id)
+
+            if todo:
+                if text is not None:
+                    todo.text = text
+                if tags is not None:
+                    todo.tags = tags
+                session.commit()
+
+    def complete_local_todo(self, todo_id: int):
+        """Mark a local TODO as completed.
+
+        Args:
+            todo_id: TODO ID
+        """
+        with self.get_session() as session:
+            todo = session.get(LocalTODO, todo_id)
+
+            if todo:
+                todo.is_active = 0
+                todo.completed_at = int(datetime.now().timestamp())
+                session.commit()
+
+    def activate_local_todo(self, todo_id: int):
+        """Reactivate a completed TODO.
+
+        Args:
+            todo_id: TODO ID
+        """
+        with self.get_session() as session:
+            todo = session.get(LocalTODO, todo_id)
+
+            if todo:
+                todo.is_active = 1
+                todo.completed_at = None
+                session.commit()
+
+    # Calendar event query
+    def get_event_at_time(self, timestamp: int) -> Optional[Dict[str, Any]]:
+        """Get calendar event at a specific time.
+
+        Args:
+            timestamp: Unix timestamp
+
+        Returns:
+            Event dictionary or None
+        """
+        with self.get_session() as session:
+            stmt = (
+                select(CalendarEvent)
+                .where(and_(
+                    CalendarEvent.start_time <= timestamp,
+                    CalendarEvent.end_time >= timestamp
+                ))
+                .order_by(CalendarEvent.start_time)
+            )
+            event = session.execute(stmt).scalars().first()
+
+            if event:
+                return {
+                    'id': event.id,
+                    'summary': event.summary,
+                    'description': event.description,
+                    'start_time': event.start_time,
+                    'end_time': event.end_time,
+                    'location': event.location,
+                    'calendar_id': event.calendar_id,
+                    'attendees': event.attendees or [],
+                    'url': event.url
+                }
+
+            return None
 
     # GitHub tasks operations
     def upsert_github_task(self, task: Dict[str, Any]):

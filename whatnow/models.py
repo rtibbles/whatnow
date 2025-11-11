@@ -18,9 +18,12 @@ class Ping(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     timestamp: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
-    activity: Mapped[str] = mapped_column(Text, nullable=False)
+    todo_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    todo_type: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)  # 'github', 'local', 'meeting'
     tags: Mapped[Optional[List[str]]] = mapped_column(JSON, nullable=True)
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    event_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)  # Calendar event ID if meeting
+    is_meeting: Mapped[bool] = mapped_column(Integer, nullable=False, default=0)  # SQLite uses 0/1 for bool
     created_at: Mapped[int] = mapped_column(
         Integer,
         nullable=False,
@@ -28,7 +31,7 @@ class Ping(Base):
     )
 
     def __repr__(self) -> str:
-        return f"<Ping(id={self.id}, timestamp={self.timestamp}, activity='{self.activity}')>"
+        return f"<Ping(id={self.id}, timestamp={self.timestamp}, todo_type='{self.todo_type}')>"
 
 
 class GitHubTask(Base):
@@ -108,3 +111,35 @@ class Config(Base):
 
     def __repr__(self) -> str:
         return f"<Config(key='{self.key}')>"
+
+
+class WorkSession(Base):
+    """Work session tracking."""
+    __tablename__ = "work_sessions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    start_time: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+    end_time: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    total_seconds: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+
+    def __repr__(self) -> str:
+        return f"<WorkSession(id={self.id}, start={self.start_time}, end={self.end_time})>"
+
+
+class LocalTODO(Base):
+    """Local TODO item."""
+    __tablename__ = "local_todos"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    text: Mapped[str] = mapped_column(Text, nullable=False)
+    tags: Mapped[Optional[List[str]]] = mapped_column(JSON, nullable=True)
+    is_active: Mapped[bool] = mapped_column(Integer, nullable=False, default=1)  # SQLite uses 0/1 for bool
+    created_at: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=lambda: int(datetime.now().timestamp())
+    )
+    completed_at: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+
+    def __repr__(self) -> str:
+        return f"<LocalTODO(id={self.id}, text='{self.text}', active={self.is_active})>"
