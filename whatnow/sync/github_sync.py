@@ -2,7 +2,7 @@
 
 import requests
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional, Dict, Any, List
 
 logging.basicConfig(level=logging.INFO)
@@ -66,14 +66,100 @@ class GitHubSync:
 
         return data.get("data", {})
 
+    def _get_current_iteration(self) -> Optional[str]:
+        """Get the current iteration title from the project.
+
+        Returns:
+            Current iteration title or None
+        """
+        query = """
+        query($org: String!, $projectNumber: Int!) {
+          organization(login: $org) {
+            projectV2(number: $projectNumber) {
+              field(name: "Iteration") {
+                ... on ProjectV2IterationField {
+                  configuration {
+                    iterations {
+                      id
+                      title
+                      startDate
+                      duration
+                    }
+                    completedIterations {
+                      id
+                      title
+                      startDate
+                      duration
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+        """
+
+        user_query = query.replace("organization(login: $org)", "user(login: $org)")
+
+        variables = {
+            "org": self.org,
+            "projectNumber": self.project_number
+        }
+
+        try:
+            data = self._execute_query(query, variables)
+            field_data = data.get("organization", {}).get("projectV2", {}).get("field")
+        except Exception:
+            try:
+                data = self._execute_query(user_query, variables)
+                field_data = data.get("user", {}).get("projectV2", {}).get("field")
+            except Exception as e:
+                logger.warning(f"Could not fetch iteration configuration: {e}")
+                return None
+
+        if not field_data:
+            return None
+
+        # Get current date
+        now = datetime.now()
+
+        # Check iterations to find current one
+        iterations = field_data.get("configuration", {}).get("iterations", [])
+        for iteration in iterations:
+            if iteration.get("title", "").lower() == "@current":
+                return iteration["title"]
+
+            # Check if current date falls within iteration
+            start_date_str = iteration.get("startDate")
+            duration = iteration.get("duration")  # Duration in days
+
+            if start_date_str and duration:
+                try:
+                    start_date = datetime.fromisoformat(start_date_str)
+                    end_date = start_date + timedelta(days=duration)
+
+                    if start_date <= now <= end_date:
+                        return iteration["title"]
+                except Exception:
+                    pass
+
+        return None
+
     def sync(self) -> bool:
-        """Sync GitHub Projects data.
+        """Sync GitHub Projects data (only current iteration).
 
         Returns:
             True if sync was successful, False otherwise
         """
         try:
             logger.info(f"Starting GitHub sync for {self.org}/project/{self.project_number}")
+
+            # Get current iteration
+            current_iteration = self._get_current_iteration()
+            if current_iteration:
+                logger.info(f"Current iteration: {current_iteration}")
+            else:
+                logger.warning("Could not determine current iteration, syncing all items")
 
             # Query to get project items
             query = """
@@ -197,7 +283,7 @@ class GitHubSync:
                 has_next_page = page_info.get("hasNextPage", False)
                 variables["cursor"] = page_info.get("endCursor")
 
-            # Process and store items
+            # Process and store items (filter by current iteration if available)
             synced_count = 0
             for item in all_items:
                 content = item.get("content")
@@ -218,6 +304,13 @@ class GitHubSync:
                     elif "title" in field_value:
                         field_values[field_name] = field_value["title"]
 
+                # Get iteration
+                iteration = field_values.get("Iteration") or field_values.get("Sprint")
+
+                # Skip if not in current iteration (if we have a current iteration filter)
+                if current_iteration and iteration != current_iteration:
+                    continue
+
                 # Extract labels
                 labels = [label["name"] for label in content.get("labels", {}).get("nodes", [])]
 
@@ -235,7 +328,7 @@ class GitHubSync:
                     "body": content.get("body"),
                     "state": content["state"],
                     "project_name": project_title,
-                    "iteration": field_values.get("Iteration") or field_values.get("Sprint"),
+                    "iteration": iteration,
                     "assignees": assignees,
                     "labels": labels,
                     "url": content["url"],

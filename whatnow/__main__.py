@@ -8,6 +8,7 @@ import logging
 import threading
 import time
 from typing import Optional
+from datetime import datetime
 
 from .database import Database
 from .poisson_scheduler import PoissonScheduler
@@ -35,6 +36,7 @@ class WhatNowApp(Gtk.Application):
         self.tray_icon: Optional[TrayIcon] = None
         self.sync_thread: Optional[threading.Thread] = None
         self.sync_running = False
+        self.tooltip_update_timer = None
 
     def do_activate(self):
         """Handle application activation."""
@@ -64,8 +66,13 @@ class WhatNowApp(Gtk.Application):
         self.tray_icon = TrayIcon(
             on_show=self._on_show_window,
             on_settings=self._on_settings_click,
+            on_work_toggle=self._on_work_toggle,
             on_quit=self._on_quit
         )
+
+        # Check if there's an active work session and restore state
+        if self.db.is_working():
+            self.tray_icon.set_working_status(True)
 
         # Start the Poisson scheduler
         self._start_scheduler()
@@ -73,12 +80,20 @@ class WhatNowApp(Gtk.Application):
         # Start background sync thread
         self._start_sync_thread()
 
+        # Start tooltip update timer (every 30 seconds)
+        self.tooltip_update_timer = GLib.timeout_add_seconds(30, self._update_tray_tooltip)
+        self._update_tray_tooltip()
+
         # Show main window
         self.main_window.present()
 
     def do_shutdown(self):
         """Handle application shutdown."""
         logger.info("Shutting down WhatNow")
+
+        # Stop tooltip timer
+        if self.tooltip_update_timer:
+            GLib.source_remove(self.tooltip_update_timer)
 
         # Stop scheduler
         if self.scheduler:
@@ -88,6 +103,11 @@ class WhatNowApp(Gtk.Application):
         self.sync_running = False
         if self.sync_thread and self.sync_thread.is_alive():
             self.sync_thread.join(timeout=5)
+
+        # End work session if active
+        if self.db and self.db.is_working():
+            self.db.end_work_session()
+            logger.info("Ended work session on shutdown")
 
         # Close database
         if self.db:
@@ -109,8 +129,9 @@ class WhatNowApp(Gtk.Application):
             "Please configure your settings to get started.\n\n"
             "You can set up:\n"
             "• Ping interval (how often you're asked what you're doing)\n"
-            "• GitHub Projects integration\n"
-            "• Google Calendar sync"
+            "• GitHub Projects integration (optional)\n"
+            "• Google Calendar sync (optional)\n\n"
+            "Use the system tray icon to toggle work sessions."
         )
         dialog.run()
         dialog.destroy()
@@ -147,21 +168,61 @@ class WhatNowApp(Gtk.Application):
         Args:
             timestamp: Unix timestamp of the ping
         """
-        def on_ping_submitted(ts: int, activity: str, tags: list, notes: Optional[str]):
+        # Check if currently working
+        if not self.db.is_working():
+            logger.info("Skipping ping - not in active work session")
+            return False
+
+        # Check for meeting at this time
+        event = self.db.get_event_at_time(timestamp)
+        if event:
+            # Auto-log meeting silently
+            logger.info(f"Auto-logging meeting: {event['summary']}")
+            self.db.add_ping(
+                timestamp=timestamp,
+                todo_id=event['id'],
+                todo_type='meeting',
+                tags=['meeting'],
+                notes=event['summary'],
+                event_id=event['id'],
+                is_meeting=True
+            )
+            return False
+
+        # Get current iteration GitHub tasks
+        github_tasks = self.db.get_github_tasks()
+
+        # Get active local TODOs
+        local_todos = self.db.get_local_todos(active_only=True)
+
+        def on_ping_submitted(ts: int, todo_id: str, todo_type: str, tags: list, notes: Optional[str]):
             """Handle ping submission."""
             try:
-                ping_id = self.db.add_ping(ts, activity, tags, notes)
-                logger.info(f"Ping saved with ID {ping_id}: {activity}")
+                ping_id = self.db.add_ping(
+                    timestamp=ts,
+                    todo_id=todo_id,
+                    todo_type=todo_type,
+                    tags=tags,
+                    notes=notes
+                )
+                logger.info(f"Ping saved with ID {ping_id}: {todo_type}/{todo_id}")
 
-                # Update main window if visible
+                # Refresh main window
                 if self.main_window:
-                    self.main_window.add_ping_to_view(ts, activity, tags, notes)
+                    GLib.idle_add(self.main_window.refresh_all)
 
             except Exception as e:
                 logger.error(f"Error saving ping: {e}")
 
         # Show dialog
-        show_ping_dialog(self.main_window, timestamp, on_ping_submitted)
+        show_ping_dialog(
+            self.main_window,
+            timestamp,
+            github_tasks,
+            local_todos,
+            self.db,
+            on_ping_submitted
+        )
 
         return False  # Don't repeat
 
@@ -236,6 +297,49 @@ class WhatNowApp(Gtk.Application):
         if self.main_window:
             self.main_window.refresh_events()
         return False
+
+    def _update_tray_tooltip(self):
+        """Update system tray tooltip with current hours."""
+        if not self.tray_icon:
+            return True
+
+        try:
+            # Get today's timestamp
+            now = datetime.now()
+            today_start = datetime(now.year, now.month, now.day, 0, 0, 0)
+            today_ts = int(today_start.timestamp())
+
+            # Get total work seconds for today
+            total_seconds = self.db.get_total_work_seconds_for_day(today_ts)
+            hours = total_seconds / 3600.0
+
+            # Update tooltip
+            self.tray_icon.update_tooltip_with_time(hours)
+
+        except Exception as e:
+            logger.error(f"Error updating tray tooltip: {e}")
+
+        return True  # Continue timer
+
+    def _on_work_toggle(self, is_working: bool):
+        """Handle work toggle from tray icon.
+
+        Args:
+            is_working: Whether work session is starting
+        """
+        if is_working:
+            # Start work session
+            session_id = self.db.start_work_session()
+            logger.info(f"Started work session {session_id}")
+        else:
+            # End work session
+            total_seconds = self.db.end_work_session()
+            if total_seconds:
+                hours = total_seconds / 3600.0
+                logger.info(f"Ended work session: {hours:.2f} hours")
+
+        # Update tooltip immediately
+        self._update_tray_tooltip()
 
     def _on_show_window(self):
         """Show main window."""

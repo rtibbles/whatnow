@@ -6,6 +6,9 @@ from gi.repository import Gtk, GLib, Pango
 from datetime import datetime
 from typing import Optional, List, Dict, Any, Callable
 
+from .todo_management import TodoManagementWidget
+from .time_analysis import TimeAnalysisWidget
+
 
 class MainWindow(Gtk.ApplicationWindow):
     """Main application window showing activity history."""
@@ -67,6 +70,16 @@ class MainWindow(Gtk.ApplicationWindow):
 
         # Create calendar view
         self._create_calendar_view()
+
+        # Create TODO management view
+        self.todo_widget = TodoManagementWidget(db)
+        todo_label = Gtk.Label(label="My TODOs")
+        self.notebook.append_page(self.todo_widget, todo_label)
+
+        # Create time analysis view
+        self.time_analysis_widget = TimeAnalysisWidget(db)
+        analysis_label = Gtk.Label(label="Time Analysis")
+        self.notebook.append_page(self.time_analysis_widget, analysis_label)
 
         # Show all widgets
         self.show_all()
@@ -322,30 +335,12 @@ class MainWindow(Gtk.ApplicationWindow):
         self.refresh_tasks()
         self.refresh_events()
 
-    def add_ping_to_view(self, timestamp: int, activity: str, tags: List[str], notes: Optional[str]):
-        """Add a new ping to the view.
-
-        Args:
-            timestamp: Unix timestamp
-            activity: Activity description
-            tags: List of tags
-            notes: Optional notes
-        """
-        dt = datetime.fromtimestamp(timestamp)
-        time_str = dt.strftime('%Y-%m-%d %H:%M:%S')
-        tags_str = ', '.join(tags)
-
-        # Add to beginning of list
-        self.pings_store.prepend([
-            time_str,
-            activity,
-            tags_str,
-            notes or '',
-            0  # ID will be updated by database
-        ])
-
-        # Update info label
-        count = len(self.pings_store)
-        self.pings_info_label.set_markup(
-            f"<small>Showing {count} recent pings</small>"
-        )
+    def refresh_all(self):
+        """Refresh all views."""
+        self._refresh_pings()
+        self.refresh_tasks()
+        self.refresh_events()
+        if hasattr(self, 'todo_widget'):
+            self.todo_widget.refresh()
+        if hasattr(self, 'time_analysis_widget'):
+            self.time_analysis_widget.refresh()
