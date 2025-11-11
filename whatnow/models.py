@@ -1,0 +1,110 @@
+"""SQLAlchemy models for WhatNow."""
+
+from datetime import datetime
+from typing import List, Optional
+from sqlalchemy import String, Integer, Text, JSON, Index
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy.sql import func
+
+
+class Base(DeclarativeBase):
+    """Base class for all models."""
+    pass
+
+
+class Ping(Base):
+    """TagTime activity ping."""
+    __tablename__ = "pings"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    timestamp: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+    activity: Mapped[str] = mapped_column(Text, nullable=False)
+    tags: Mapped[Optional[List[str]]] = mapped_column(JSON, nullable=True)
+    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=lambda: int(datetime.now().timestamp())
+    )
+
+    def __repr__(self) -> str:
+        return f"<Ping(id={self.id}, timestamp={self.timestamp}, activity='{self.activity}')>"
+
+
+class GitHubTask(Base):
+    """GitHub Projects task/issue."""
+    __tablename__ = "github_tasks"
+
+    id: Mapped[str] = mapped_column(String(255), primary_key=True)
+    title: Mapped[str] = mapped_column(Text, nullable=False)
+    body: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    state: Mapped[str] = mapped_column(String(50), nullable=False)
+    project_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    iteration: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    assignees: Mapped[Optional[List[str]]] = mapped_column(JSON, nullable=True)
+    labels: Mapped[Optional[List[str]]] = mapped_column(JSON, nullable=True)
+    url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    created_at: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    updated_at: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    synced_at: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=lambda: int(datetime.now().timestamp())
+    )
+
+    def __repr__(self) -> str:
+        return f"<GitHubTask(id='{self.id}', title='{self.title}', state='{self.state}')>"
+
+
+class CalendarEvent(Base):
+    """Google Calendar event."""
+    __tablename__ = "calendar_events"
+
+    id: Mapped[str] = mapped_column(String(255), primary_key=True)
+    summary: Mapped[str] = mapped_column(Text, nullable=False)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    start_time: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+    end_time: Mapped[int] = mapped_column(Integer, nullable=False)
+    location: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    calendar_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    attendees: Mapped[Optional[List[str]]] = mapped_column(JSON, nullable=True)
+    url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    synced_at: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=lambda: int(datetime.now().timestamp())
+    )
+
+    def __repr__(self) -> str:
+        return f"<CalendarEvent(id='{self.id}', summary='{self.summary}')>"
+
+
+class SyncMetadata(Base):
+    """Sync metadata for external services."""
+    __tablename__ = "sync_metadata"
+
+    service: Mapped[str] = mapped_column(String(50), primary_key=True)
+    last_sync: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    last_success: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    sync_token: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    def __repr__(self) -> str:
+        return f"<SyncMetadata(service='{self.service}', last_sync={self.last_sync})>"
+
+
+class Config(Base):
+    """Application configuration."""
+    __tablename__ = "config"
+
+    key: Mapped[str] = mapped_column(String(255), primary_key=True)
+    value: Mapped[str] = mapped_column(Text, nullable=False)
+    updated_at: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=lambda: int(datetime.now().timestamp()),
+        onupdate=lambda: int(datetime.now().timestamp())
+    )
+
+    def __repr__(self) -> str:
+        return f"<Config(key='{self.key}')>"

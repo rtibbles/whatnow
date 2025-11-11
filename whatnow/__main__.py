@@ -1,0 +1,274 @@
+"""Main entry point for WhatNow application."""
+
+import gi
+gi.require_version('Gtk', '3.0')
+from gi.repository import Gtk, GLib
+import sys
+import logging
+import threading
+import time
+from typing import Optional
+
+from .database import Database
+from .poisson_scheduler import PoissonScheduler
+from .ui.main_window import MainWindow
+from .ui.ping_dialog import show_ping_dialog
+from .ui.settings import show_settings_dialog
+from .ui.tray_icon import TrayIcon
+from .sync.github_sync import GitHubSync
+from .sync.gcal_sync import GoogleCalendarSync
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+
+class WhatNowApp(Gtk.Application):
+    """Main application class."""
+
+    def __init__(self):
+        """Initialize the application."""
+        super().__init__(application_id="com.whatnow.app")
+
+        self.db: Optional[Database] = None
+        self.scheduler: Optional[PoissonScheduler] = None
+        self.main_window: Optional[MainWindow] = None
+        self.tray_icon: Optional[TrayIcon] = None
+        self.sync_thread: Optional[threading.Thread] = None
+        self.sync_running = False
+
+    def do_activate(self):
+        """Handle application activation."""
+        if self.main_window:
+            # Window already exists, just present it
+            self.main_window.present()
+            return
+
+        # Initialize database
+        self.db = Database()
+        logger.info(f"Database initialized at {self.db.db_path}")
+
+        # Check if first run (no settings configured)
+        ping_interval = self.db.get_config('ping_interval')
+        if ping_interval is None:
+            logger.info("First run detected, showing settings dialog")
+            self._show_first_run_dialog()
+
+        # Create main window
+        self.main_window = MainWindow(
+            self,
+            self.db,
+            on_settings_click=self._on_settings_click
+        )
+
+        # Create system tray icon
+        self.tray_icon = TrayIcon(
+            on_show=self._on_show_window,
+            on_settings=self._on_settings_click,
+            on_quit=self._on_quit
+        )
+
+        # Start the Poisson scheduler
+        self._start_scheduler()
+
+        # Start background sync thread
+        self._start_sync_thread()
+
+        # Show main window
+        self.main_window.present()
+
+    def do_shutdown(self):
+        """Handle application shutdown."""
+        logger.info("Shutting down WhatNow")
+
+        # Stop scheduler
+        if self.scheduler:
+            self.scheduler.stop()
+
+        # Stop sync thread
+        self.sync_running = False
+        if self.sync_thread and self.sync_thread.is_alive():
+            self.sync_thread.join(timeout=5)
+
+        # Close database
+        if self.db:
+            self.db.close()
+
+        Gtk.Application.do_shutdown(self)
+
+    def _show_first_run_dialog(self):
+        """Show first run setup dialog."""
+        dialog = Gtk.MessageDialog(
+            parent=None,
+            flags=0,
+            message_type=Gtk.MessageType.INFO,
+            buttons=Gtk.ButtonsType.OK,
+            text="Welcome to WhatNow!"
+        )
+        dialog.format_secondary_text(
+            "This is your first time running WhatNow. "
+            "Please configure your settings to get started.\n\n"
+            "You can set up:\n"
+            "• Ping interval (how often you're asked what you're doing)\n"
+            "• GitHub Projects integration\n"
+            "• Google Calendar sync"
+        )
+        dialog.run()
+        dialog.destroy()
+
+        # Show settings
+        self._show_settings()
+
+    def _start_scheduler(self):
+        """Start the Poisson ping scheduler."""
+        ping_interval = self.db.get_config('ping_interval', 45)
+
+        self.scheduler = PoissonScheduler(
+            average_gap_minutes=ping_interval,
+            ping_callback=self._on_ping_triggered
+        )
+        self.scheduler.start()
+
+        logger.info(f"Poisson scheduler started with {ping_interval} minute average gap")
+
+    def _on_ping_triggered(self, timestamp: int):
+        """Handle when a ping is triggered.
+
+        Args:
+            timestamp: Unix timestamp of the ping
+        """
+        logger.info(f"Ping triggered at timestamp {timestamp}")
+
+        # Show ping dialog on main thread
+        GLib.idle_add(self._show_ping_dialog, timestamp)
+
+    def _show_ping_dialog(self, timestamp: int):
+        """Show the ping dialog (called on main thread).
+
+        Args:
+            timestamp: Unix timestamp of the ping
+        """
+        def on_ping_submitted(ts: int, activity: str, tags: list, notes: Optional[str]):
+            """Handle ping submission."""
+            try:
+                ping_id = self.db.add_ping(ts, activity, tags, notes)
+                logger.info(f"Ping saved with ID {ping_id}: {activity}")
+
+                # Update main window if visible
+                if self.main_window:
+                    self.main_window.add_ping_to_view(ts, activity, tags, notes)
+
+            except Exception as e:
+                logger.error(f"Error saving ping: {e}")
+
+        # Show dialog
+        show_ping_dialog(self.main_window, timestamp, on_ping_submitted)
+
+        return False  # Don't repeat
+
+    def _start_sync_thread(self):
+        """Start background sync thread."""
+        self.sync_running = True
+        self.sync_thread = threading.Thread(target=self._sync_loop, daemon=True)
+        self.sync_thread.start()
+        logger.info("Background sync thread started")
+
+    def _sync_loop(self):
+        """Background sync loop."""
+        # Wait a bit before first sync
+        time.sleep(10)
+
+        while self.sync_running:
+            try:
+                sync_interval = self.db.get_config('sync_interval', 30)
+                logger.info("Running background sync")
+
+                # Sync GitHub if configured
+                github_token = self.db.get_config('github_token')
+                github_org = self.db.get_config('github_org')
+                github_project = self.db.get_config('github_project')
+
+                if github_token and github_org and github_project:
+                    try:
+                        github_sync = GitHubSync(
+                            self.db,
+                            github_token,
+                            github_org,
+                            github_project
+                        )
+                        if github_sync.sync():
+                            # Update main window
+                            GLib.idle_add(self._refresh_github_tasks)
+                    except Exception as e:
+                        logger.error(f"GitHub sync error: {e}")
+
+                # Sync Google Calendar if configured
+                gcal_creds = self.db.get_config('gcal_credentials_path')
+                gcal_ids = self.db.get_config('gcal_calendar_ids', ['primary'])
+
+                if gcal_creds:
+                    try:
+                        gcal_sync = GoogleCalendarSync(
+                            self.db,
+                            gcal_creds,
+                            gcal_ids
+                        )
+                        if gcal_sync.sync():
+                            # Update main window
+                            GLib.idle_add(self._refresh_calendar_events)
+                    except Exception as e:
+                        logger.error(f"Google Calendar sync error: {e}")
+
+                # Wait for next sync
+                time.sleep(sync_interval * 60)
+
+            except Exception as e:
+                logger.error(f"Error in sync loop: {e}")
+                time.sleep(60)  # Wait a minute before retrying
+
+    def _refresh_github_tasks(self):
+        """Refresh GitHub tasks in main window."""
+        if self.main_window:
+            self.main_window.refresh_tasks()
+        return False
+
+    def _refresh_calendar_events(self):
+        """Refresh calendar events in main window."""
+        if self.main_window:
+            self.main_window.refresh_events()
+        return False
+
+    def _on_show_window(self):
+        """Show main window."""
+        if self.main_window:
+            self.main_window.present()
+
+    def _on_settings_click(self):
+        """Show settings dialog."""
+        self._show_settings()
+
+    def _show_settings(self):
+        """Show settings dialog."""
+        saved = show_settings_dialog(self.main_window, self.db)
+
+        if saved:
+            # Update scheduler with new ping interval
+            ping_interval = self.db.get_config('ping_interval', 45)
+            if self.scheduler:
+                self.scheduler.set_average_gap(ping_interval)
+
+            logger.info("Settings saved and applied")
+
+    def _on_quit(self):
+        """Handle quit request."""
+        self.quit()
+
+
+def main():
+    """Main entry point."""
+    app = WhatNowApp()
+    exit_status = app.run(sys.argv)
+    sys.exit(exit_status)
+
+
+if __name__ == '__main__':
+    main()
