@@ -94,7 +94,7 @@ whatnow
 On first run, you'll need to configure:
 1. Ping interval preferences
 2. GitHub Personal Access Token (optional, with `repo` and `project` scopes)
-3. Google Calendar API credentials (optional, OAuth 2.0)
+3. Google Calendar connection (optional, simple browser-based OAuth)
 
 ### Running the App
 
@@ -119,11 +119,12 @@ Configuration is stored in the SQLite database at `~/.local/share/whatnow/whatno
 
 ### Google Calendar Setup
 
-1. Go to Google Cloud Console
-2. Create a project and enable Google Calendar API
-3. Create OAuth 2.0 credentials (Desktop app)
-4. Download the credentials JSON file
-5. Configure in WhatNow settings
+1. Open WhatNow settings (Settings → Google Calendar tab)
+2. Click "Connect Google Calendar"
+3. Authorize in your browser when prompted
+4. Done! Meetings will be automatically detected and logged
+
+No additional setup required - the app handles OAuth authentication automatically.
 
 ## Data Storage
 

@@ -165,32 +165,23 @@ class SettingsDialog(Gtk.Dialog):
         # Instructions
         info_label = Gtk.Label()
         info_label.set_markup(
-            "<b>Google Calendar API Setup</b>\n\n"
-            "1. Go to Google Cloud Console\n"
-            "2. Create a project and enable Google Calendar API\n"
-            "3. Create OAuth 2.0 credentials (Desktop app)\n"
-            "4. Download the credentials JSON file\n"
-            "5. Enter the file path below"
+            "<b>Google Calendar Integration</b>\n\n"
+            "Connect your Google Calendar to automatically detect meetings.\n"
+            "During meetings, pings will be silently logged without interrupting you."
         )
         info_label.set_line_wrap(True)
         info_label.set_xalign(0)
         vbox.pack_start(info_label, False, False, 0)
 
-        # Credentials file picker
-        creds_label = Gtk.Label(label="Credentials file:", xalign=0)
-        vbox.pack_start(creds_label, False, False, 0)
+        # Connection status
+        self.gcal_status_label = Gtk.Label()
+        self.gcal_status_label.set_xalign(0)
+        vbox.pack_start(self.gcal_status_label, False, False, 5)
 
-        hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=5)
-
-        self.gcal_creds_entry = Gtk.Entry()
-        self.gcal_creds_entry.set_placeholder_text("/path/to/credentials.json")
-        hbox.pack_start(self.gcal_creds_entry, True, True, 0)
-
-        browse_button = Gtk.Button(label="Browse...")
-        browse_button.connect("clicked", self._on_browse_creds_clicked)
-        hbox.pack_start(browse_button, False, False, 0)
-
-        vbox.pack_start(hbox, False, False, 0)
+        # Connect button
+        connect_button = Gtk.Button(label="Connect Google Calendar")
+        connect_button.connect("clicked", self._on_connect_calendar_clicked)
+        vbox.pack_start(connect_button, False, False, 0)
 
         # Separator
         vbox.pack_start(Gtk.Separator(), False, False, 5)
@@ -237,8 +228,11 @@ class SettingsDialog(Gtk.Dialog):
         self.github_project_spin.set_value(github_project)
 
         # Google Calendar settings
-        gcal_creds = self.db.get_config('gcal_credentials_path', '')
-        self.gcal_creds_entry.set_text(gcal_creds)
+        gcal_connected = self.db.get_config('gcal_connected', False)
+        if gcal_connected:
+            self.gcal_status_label.set_markup("<span color='green'>✓ Connected</span>")
+        else:
+            self.gcal_status_label.set_markup("<span color='gray'>Not connected</span>")
 
         gcal_ids = self.db.get_config('gcal_calendar_ids', ['primary'])
         gcal_ids_text = '\n'.join(gcal_ids)
@@ -257,8 +251,6 @@ class SettingsDialog(Gtk.Dialog):
         self.db.set_config('github_project', int(self.github_project_spin.get_value()))
 
         # Google Calendar settings
-        self.db.set_config('gcal_credentials_path', self.gcal_creds_entry.get_text().strip())
-
         buffer = self.gcal_ids_textview.get_buffer()
         start_iter = buffer.get_start_iter()
         end_iter = buffer.get_end_iter()
@@ -270,30 +262,60 @@ class SettingsDialog(Gtk.Dialog):
         """Toggle GitHub token visibility."""
         self.github_token_entry.set_visibility(checkbox.get_active())
 
-    def _on_browse_creds_clicked(self, button):
-        """Open file chooser for credentials file."""
-        dialog = Gtk.FileChooserDialog(
-            title="Select credentials file",
-            parent=self,
-            action=Gtk.FileChooserAction.OPEN
-        )
-        dialog.add_buttons(
-            Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
-            Gtk.STOCK_OPEN, Gtk.ResponseType.OK
-        )
+    def _on_connect_calendar_clicked(self, button):
+        """Handle Google Calendar connection button click."""
+        from ..sync.gcal_sync import GoogleCalendarSync
+        import threading
 
-        # Add JSON filter
-        filter_json = Gtk.FileFilter()
-        filter_json.set_name("JSON files")
-        filter_json.add_mime_type("application/json")
-        filter_json.add_pattern("*.json")
-        dialog.add_filter(filter_json)
+        button.set_sensitive(False)
+        self.gcal_status_label.set_markup("<span color='blue'>Connecting...</span>")
 
-        response = dialog.run()
-        if response == Gtk.ResponseType.OK:
-            self.gcal_creds_entry.set_text(dialog.get_filename())
+        def connect():
+            """Run OAuth flow in background thread."""
+            try:
+                # Create sync instance and trigger authentication
+                gcal_ids = self.db.get_config('gcal_calendar_ids', ['primary'])
+                gcal_sync = GoogleCalendarSync(self.db, gcal_ids)
 
-        dialog.destroy()
+                # This will trigger OAuth flow if needed
+                if gcal_sync._authenticate():
+                    # Mark as connected
+                    self.db.set_config('gcal_connected', True)
+
+                    # Update UI on main thread
+                    from gi.repository import GLib
+                    GLib.idle_add(self._on_calendar_connected, True)
+                else:
+                    from gi.repository import GLib
+                    GLib.idle_add(self._on_calendar_connected, False)
+
+            except Exception as e:
+                import logging
+                logging.error(f"Calendar connection error: {e}")
+                from gi.repository import GLib
+                GLib.idle_add(self._on_calendar_connected, False)
+
+        # Run in background thread
+        thread = threading.Thread(target=connect, daemon=True)
+        thread.start()
+
+    def _on_calendar_connected(self, success: bool):
+        """Handle calendar connection result (called on main thread)."""
+        if success:
+            self.gcal_status_label.set_markup("<span color='green'>✓ Connected</span>")
+        else:
+            self.gcal_status_label.set_markup("<span color='red'>✗ Connection failed</span>")
+
+        # Re-enable button
+        for child in self.get_content_area().get_children():
+            if isinstance(child, Gtk.Notebook):
+                for page_num in range(child.get_n_pages()):
+                    page = child.get_nth_page(page_num)
+                    for widget in page.get_children():
+                        if isinstance(widget, Gtk.Button):
+                            widget.set_sensitive(True)
+
+        return False  # Don't repeat
 
     def run_and_save(self) -> bool:
         """Run the dialog and save settings if OK was clicked.

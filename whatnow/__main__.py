@@ -263,16 +263,12 @@ class WhatNowApp(Gtk.Application):
                         logger.error(f"GitHub sync error: {e}")
 
                 # Sync Google Calendar if configured
-                gcal_creds = self.db.get_config('gcal_credentials_path')
+                gcal_connected = self.db.get_config('gcal_connected', False)
                 gcal_ids = self.db.get_config('gcal_calendar_ids', ['primary'])
 
-                if gcal_creds:
+                if gcal_connected:
                     try:
-                        gcal_sync = GoogleCalendarSync(
-                            self.db,
-                            gcal_creds,
-                            gcal_ids
-                        )
+                        gcal_sync = GoogleCalendarSync(self.db, gcal_ids)
                         if gcal_sync.sync():
                             # Update main window
                             GLib.idle_add(self._refresh_calendar_events)

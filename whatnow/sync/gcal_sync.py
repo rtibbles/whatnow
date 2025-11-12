@@ -12,26 +12,23 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
+from .gcal_credentials import GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, SCOPES, REDIRECT_URI
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-# Scopes required for Google Calendar API
-SCOPES = ['https://www.googleapis.com/auth/calendar.readonly']
 
 
 class GoogleCalendarSync:
     """Sync service for Google Calendar."""
 
-    def __init__(self, db, credentials_path: str, calendar_ids: Optional[List[str]] = None):
+    def __init__(self, db, calendar_ids: Optional[List[str]] = None):
         """Initialize Google Calendar sync service.
 
         Args:
             db: Database instance
-            credentials_path: Path to OAuth credentials JSON file
             calendar_ids: List of calendar IDs to sync (default: ['primary'])
         """
         self.db = db
-        self.credentials_path = credentials_path
         self.calendar_ids = calendar_ids or ['primary']
         self.creds: Optional[Credentials] = None
         self.service = None
@@ -59,15 +56,25 @@ class GoogleCalendarSync:
                     logger.info("Refreshing Google Calendar token")
                     self.creds.refresh(Request())
                 else:
-                    # Get new credentials
-                    if not os.path.exists(self.credentials_path):
-                        raise Exception(f"Credentials file not found: {self.credentials_path}")
-
+                    # Get new credentials using embedded OAuth client
                     logger.info("Starting OAuth flow for Google Calendar")
-                    flow = InstalledAppFlow.from_client_secrets_file(
-                        self.credentials_path, SCOPES
+
+                    # Build OAuth client config from embedded credentials
+                    client_config = {
+                        "installed": {
+                            "client_id": GOOGLE_CLIENT_ID,
+                            "client_secret": GOOGLE_CLIENT_SECRET,
+                            "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                            "token_uri": "https://oauth2.googleapis.com/token",
+                            "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+                            "redirect_uris": [REDIRECT_URI, "http://localhost"]
+                        }
+                    }
+
+                    flow = InstalledAppFlow.from_client_config(
+                        client_config, SCOPES
                     )
-                    self.creds = flow.run_local_server(port=0)
+                    self.creds = flow.run_local_server(port=8080)
 
                 # Save token for future use
                 with open(self.token_path, 'wb') as token_file:
