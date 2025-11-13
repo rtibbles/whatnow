@@ -73,6 +73,10 @@ class Database:
         session_factory = sessionmaker(bind=self.engine)
         self.SessionLocal = scoped_session(session_factory)
 
+        # Create backups directory
+        self.backup_dir = Path(self.db_path).parent / 'backups'
+        self.backup_dir.mkdir(parents=True, exist_ok=True)
+
         # Run database migrations
         self._run_migrations()
 
@@ -100,6 +104,11 @@ class Database:
             # Set the database URL
             alembic_cfg.set_main_option("sqlalchemy.url", f"sqlite:///{self.db_path}")
 
+            # Create backup before migrations if database exists and has data
+            if Path(self.db_path).exists() and Path(self.db_path).stat().st_size > 0:
+                logger.info("Creating backup before migrations...")
+                self.create_backup(reason="pre_migration")
+
             # Run upgrade to head
             logger.info("Checking for database migrations...")
             command.upgrade(alembic_cfg, "head")
@@ -117,6 +126,125 @@ class Database:
             SQLAlchemy session
         """
         return self.SessionLocal()
+
+    # Backup operations
+    def create_backup(self, reason: str = "manual") -> Optional[str]:
+        """Create a backup of the database.
+
+        Args:
+            reason: Reason for backup (e.g., 'manual', 'pre_migration', 'periodic')
+
+        Returns:
+            Path to backup file, or None if backup failed
+        """
+        try:
+            import shutil
+            from datetime import datetime
+
+            # Generate backup filename with timestamp
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            backup_filename = f"whatnow_backup_{timestamp}_{reason}.db"
+            backup_path = self.backup_dir / backup_filename
+
+            # Close any open connections temporarily
+            self.SessionLocal.remove()
+
+            # Copy database file
+            shutil.copy2(self.db_path, backup_path)
+
+            logger.info(f"Database backup created: {backup_path}")
+
+            # Clean up old backups (keep last 10)
+            self._cleanup_old_backups(keep=10)
+
+            return str(backup_path)
+
+        except Exception as e:
+            logger.error(f"Failed to create backup: {e}")
+            return None
+
+    def _cleanup_old_backups(self, keep: int = 10):
+        """Clean up old backup files, keeping only the most recent ones.
+
+        Args:
+            keep: Number of backups to keep
+        """
+        try:
+            # Get all backup files sorted by modification time
+            backups = sorted(
+                self.backup_dir.glob("whatnow_backup_*.db"),
+                key=lambda p: p.stat().st_mtime,
+                reverse=True
+            )
+
+            # Remove old backups
+            for backup in backups[keep:]:
+                backup.unlink()
+                logger.info(f"Removed old backup: {backup}")
+
+        except Exception as e:
+            logger.error(f"Failed to cleanup old backups: {e}")
+
+    def export_data(self, export_path: str) -> bool:
+        """Export all data to a JSON file.
+
+        Args:
+            export_path: Path to export file
+
+        Returns:
+            True if export successful, False otherwise
+        """
+        try:
+            import json
+            from datetime import datetime
+
+            # Gather all data
+            data = {
+                'export_date': datetime.now().isoformat(),
+                'pings': self.get_pings(limit=100000),  # Export all pings
+                'local_todos': self.get_local_todos(active_only=False),
+                'github_tasks': self.get_github_tasks(),
+                'work_sessions': self._export_work_sessions(),
+                'config': self._export_config(),
+            }
+
+            # Write to file
+            with open(export_path, 'w') as f:
+                json.dump(data, f, indent=2, default=str)
+
+            logger.info(f"Data exported to: {export_path}")
+            return True
+
+        except Exception as e:
+            logger.error(f"Failed to export data: {e}")
+            return False
+
+    def _export_work_sessions(self) -> List[Dict[str, Any]]:
+        """Export work sessions for data export.
+
+        Returns:
+            List of work session dictionaries
+        """
+        with self.get_session() as session:
+            sessions = session.execute(select(WorkSession)).scalars().all()
+            return [
+                {
+                    'id': s.id,
+                    'start_time': s.start_time,
+                    'end_time': s.end_time,
+                }
+                for s in sessions
+            ]
+
+    def _export_config(self) -> Dict[str, Any]:
+        """Export configuration for data export.
+
+        Returns:
+            Dictionary of configuration values
+        """
+        with self.get_session() as session:
+            configs = session.execute(select(Config)).scalars().all()
+            return {c.key: c.value for c in configs}
 
     # Ping operations
     def add_ping(self, timestamp: int, todo_id: Optional[str] = None,

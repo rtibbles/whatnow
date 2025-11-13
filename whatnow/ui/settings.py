@@ -61,6 +61,7 @@ class SettingsDialog(Gtk.Dialog):
         self._create_general_page(notebook)
         self._create_github_page(notebook)
         self._create_calendar_page(notebook)
+        self._create_backup_page(notebook)
 
         # Load current settings
         self._load_settings()
@@ -231,6 +232,44 @@ class SettingsDialog(Gtk.Dialog):
 
         # Add to notebook
         label = Gtk.Label(label="Google Calendar")
+        notebook.append_page(vbox, label)
+
+    def _create_backup_page(self, notebook: Gtk.Notebook):
+        """Create the backup and data safety page."""
+        vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+        vbox.set_border_width(10)
+
+        # Instructions
+        info_label = Gtk.Label()
+        info_label.set_markup(
+            "<b>Database Backup & Data Export</b>\n\n"
+            "Backups are automatically created before database migrations.\n"
+            "You can also create manual backups or export your data to JSON."
+        )
+        info_label.set_line_wrap(True)
+        info_label.set_xalign(0)
+        vbox.pack_start(info_label, False, False, 0)
+
+        # Create backup button
+        backup_button = Gtk.Button(label="Create Backup Now")
+        backup_button.connect("clicked", self._on_create_backup_clicked)
+        vbox.pack_start(backup_button, False, False, 0)
+
+        # Export data button
+        export_button = Gtk.Button(label="Export Data to JSON")
+        export_button.connect("clicked", self._on_export_data_clicked)
+        vbox.pack_start(export_button, False, False, 0)
+
+        # Separator
+        vbox.pack_start(Gtk.Separator(), False, False, 5)
+
+        # Backup status label
+        self.backup_status_label = Gtk.Label()
+        self.backup_status_label.set_xalign(0)
+        vbox.pack_start(self.backup_status_label, False, False, 5)
+
+        # Add to notebook
+        label = Gtk.Label(label="Backup & Data")
         notebook.append_page(vbox, label)
 
     def _load_settings(self):
@@ -462,6 +501,64 @@ class SettingsDialog(Gtk.Dialog):
             )
 
         return False
+
+    def _on_create_backup_clicked(self, button):
+        """Handle create backup button click."""
+        button.set_sensitive(False)
+        self.backup_status_label.set_markup("<small><span color='blue'>Creating backup...</span></small>")
+
+        try:
+            backup_path = self.db.create_backup(reason="manual")
+            if backup_path:
+                self.backup_status_label.set_markup(
+                    f"<small><span color='green'>✓ Backup created: {backup_path}</span></small>"
+                )
+            else:
+                self.backup_status_label.set_markup(
+                    "<small><span color='red'>✗ Backup failed</span></small>"
+                )
+        except Exception as e:
+            self.backup_status_label.set_markup(
+                f"<small><span color='red'>✗ Error: {str(e)[:50]}</span></small>"
+            )
+        finally:
+            button.set_sensitive(True)
+
+    def _on_export_data_clicked(self, button):
+        """Handle export data button click."""
+        # Show file chooser dialog
+        dialog = Gtk.FileChooserDialog(
+            title="Export Data to JSON",
+            parent=self,
+            action=Gtk.FileChooserAction.SAVE
+        )
+        dialog.add_button("Cancel", Gtk.ResponseType.CANCEL)
+        dialog.add_button("Save", Gtk.ResponseType.OK)
+        dialog.set_current_name("whatnow_export.json")
+
+        response = dialog.run()
+        export_path = dialog.get_filename()
+        dialog.destroy()
+
+        if response == Gtk.ResponseType.OK and export_path:
+            button.set_sensitive(False)
+            self.backup_status_label.set_markup("<small><span color='blue'>Exporting data...</span></small>")
+
+            try:
+                if self.db.export_data(export_path):
+                    self.backup_status_label.set_markup(
+                        f"<small><span color='green'>✓ Data exported: {export_path}</span></small>"
+                    )
+                else:
+                    self.backup_status_label.set_markup(
+                        "<small><span color='red'>✗ Export failed</span></small>"
+                    )
+            except Exception as e:
+                self.backup_status_label.set_markup(
+                    f"<small><span color='red'>✗ Error: {str(e)[:50]}</span></small>"
+                )
+            finally:
+                button.set_sensitive(True)
 
     def run_and_save(self) -> bool:
         """Run the dialog and save settings if OK was clicked.
