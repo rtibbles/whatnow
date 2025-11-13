@@ -19,6 +19,16 @@ from .ui.settings import show_settings_dialog
 from .ui.tray_icon import TrayIcon
 from .sync.github_sync import GitHubSync
 from .sync.gcal_sync import GoogleCalendarSync
+from .constants import (
+    DEFAULT_PING_INTERVAL_MINUTES,
+    DEFAULT_SYNC_INTERVAL_MINUTES,
+    DEFAULT_CALENDAR_DAYS_AHEAD,
+    DEFAULT_CALENDAR_IDS,
+    INITIAL_SYNC_DELAY_SECONDS,
+    TOOLTIP_UPDATE_INTERVAL_SECONDS,
+    THREAD_SHUTDOWN_TIMEOUT_SECONDS,
+    STATUS_MESSAGE_AUTO_CLEAR_SECONDS,
+)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -85,8 +95,8 @@ class WhatNowApp(Gtk.Application):
         # Start background sync thread
         self._start_sync_thread()
 
-        # Start tooltip update timer (every 30 seconds)
-        self.tooltip_update_timer = GLib.timeout_add_seconds(30, self._update_tray_tooltip)
+        # Start tooltip update timer
+        self.tooltip_update_timer = GLib.timeout_add_seconds(TOOLTIP_UPDATE_INTERVAL_SECONDS, self._update_tray_tooltip)
         self._update_tray_tooltip()
 
         # Show main window
@@ -123,7 +133,7 @@ class WhatNowApp(Gtk.Application):
         self.sync_running = False
         if self.sync_thread and self.sync_thread.is_alive():
             logger.info("Waiting for sync thread to finish...")
-            self.sync_thread.join(timeout=10)
+            self.sync_thread.join(timeout=THREAD_SHUTDOWN_TIMEOUT_SECONDS)
             if self.sync_thread.is_alive():
                 logger.warning("Sync thread did not stop gracefully")
 
@@ -165,7 +175,7 @@ class WhatNowApp(Gtk.Application):
 
     def _start_scheduler(self):
         """Start the Poisson ping scheduler."""
-        ping_interval = self.db.get_config('ping_interval', 45)
+        ping_interval = self.db.get_config('ping_interval', DEFAULT_PING_INTERVAL_MINUTES)
 
         self.scheduler = PoissonScheduler(
             average_gap_minutes=ping_interval,
@@ -260,12 +270,12 @@ class WhatNowApp(Gtk.Application):
     def _sync_loop(self):
         """Background sync loop."""
         # Wait a bit before first sync (interruptible)
-        if self.shutdown_event.wait(timeout=10):
+        if self.shutdown_event.wait(timeout=INITIAL_SYNC_DELAY_SECONDS):
             return  # Shutdown requested during initial wait
 
         while self.sync_running and not self.shutdown_event.is_set():
             try:
-                sync_interval = self.db.get_config('sync_interval', 30)
+                sync_interval = self.db.get_config('sync_interval', DEFAULT_SYNC_INTERVAL_MINUTES)
                 logger.info("Running background sync")
 
                 # Sync GitHub if configured
@@ -300,7 +310,7 @@ class WhatNowApp(Gtk.Application):
 
                 # Sync Google Calendar if configured
                 gcal_connected = self.db.get_config('gcal_connected', False)
-                gcal_ids = self.db.get_config('gcal_calendar_ids', ['primary'])
+                gcal_ids = self.db.get_config('gcal_calendar_ids', DEFAULT_CALENDAR_IDS)
 
                 if gcal_connected:
                     try:
@@ -338,8 +348,8 @@ class WhatNowApp(Gtk.Application):
         """
         if self.main_window:
             self.main_window.set_status(message)
-            # Auto-clear after 5 seconds
-            GLib.timeout_add_seconds(5, self.main_window.clear_status)
+            # Auto-clear after a few seconds
+            GLib.timeout_add_seconds(STATUS_MESSAGE_AUTO_CLEAR_SECONDS, self.main_window.clear_status)
         return False
 
     def _refresh_github_tasks(self):

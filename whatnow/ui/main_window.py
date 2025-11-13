@@ -8,6 +8,10 @@ from typing import Optional, List, Dict, Any, Callable
 
 from .todo_management import TodoManagementWidget
 from .time_analysis import TimeAnalysisWidget
+from ..constants import (
+    DEFAULT_PAGE_SIZE,
+    STATUS_MESSAGE_SUCCESS_CLEAR_SECONDS,
+)
 
 
 class MainWindow(Gtk.ApplicationWindow):
@@ -28,7 +32,7 @@ class MainWindow(Gtk.ApplicationWindow):
 
         # Pagination state for pings
         self.current_page = 0
-        self.page_size = 100
+        self.page_size = DEFAULT_PAGE_SIZE
 
         # Set window properties
         self.set_default_size(800, 600)
@@ -446,8 +450,8 @@ class MainWindow(Gtk.ApplicationWindow):
         self.refresh_tasks()
         self.refresh_events()
         self.set_status("Refreshed successfully")
-        # Clear status after 3 seconds
-        GLib.timeout_add_seconds(3, self.clear_status)
+        # Clear status after a few seconds
+        GLib.timeout_add_seconds(STATUS_MESSAGE_SUCCESS_CLEAR_SECONDS, self.clear_status)
 
     def refresh_all(self):
         """Refresh all views."""

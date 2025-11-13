@@ -5,6 +5,21 @@ gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk
 from typing import Optional
 
+from ..constants import (
+    DEFAULT_PING_INTERVAL_MINUTES,
+    MIN_PING_INTERVAL_MINUTES,
+    MAX_PING_INTERVAL_MINUTES,
+    PING_INTERVAL_INCREMENT,
+    PING_INTERVAL_LARGE_INCREMENT,
+    DEFAULT_SYNC_INTERVAL_MINUTES,
+    MIN_SYNC_INTERVAL_MINUTES,
+    MAX_SYNC_INTERVAL_MINUTES,
+    SYNC_INTERVAL_INCREMENT,
+    SYNC_INTERVAL_LARGE_INCREMENT,
+    POISSON_DISTRIBUTION_NOTE,
+    DEFAULT_CALENDAR_IDS,
+)
+
 
 class SettingsDialog(Gtk.Dialog):
     """Settings dialog for API tokens and preferences."""
@@ -67,19 +82,16 @@ class SettingsDialog(Gtk.Dialog):
         grid.attach(label, 0, row, 1, 1)
 
         self.ping_interval_spin = Gtk.SpinButton()
-        self.ping_interval_spin.set_range(1, 180)
-        self.ping_interval_spin.set_increments(1, 15)
-        self.ping_interval_spin.set_value(45)
+        self.ping_interval_spin.set_range(MIN_PING_INTERVAL_MINUTES, MAX_PING_INTERVAL_MINUTES)
+        self.ping_interval_spin.set_increments(PING_INTERVAL_INCREMENT, PING_INTERVAL_LARGE_INCREMENT)
+        self.ping_interval_spin.set_value(DEFAULT_PING_INTERVAL_MINUTES)
         grid.attach(self.ping_interval_spin, 1, row, 1, 1)
 
         row += 1
 
         # Info label
         info_label = Gtk.Label()
-        info_label.set_markup(
-            "<small>TagTime uses Poisson distribution for random pings.\n"
-            "A 45-minute average means ~32 pings per day.</small>"
-        )
+        info_label.set_markup(f"<small>{POISSON_DISTRIBUTION_NOTE}</small>")
         info_label.set_line_wrap(True)
         info_label.set_xalign(0)
         grid.attach(info_label, 0, row, 2, 1)
@@ -91,9 +103,9 @@ class SettingsDialog(Gtk.Dialog):
         grid.attach(label, 0, row, 1, 1)
 
         self.sync_interval_spin = Gtk.SpinButton()
-        self.sync_interval_spin.set_range(5, 120)
-        self.sync_interval_spin.set_increments(5, 15)
-        self.sync_interval_spin.set_value(30)
+        self.sync_interval_spin.set_range(MIN_SYNC_INTERVAL_MINUTES, MAX_SYNC_INTERVAL_MINUTES)
+        self.sync_interval_spin.set_increments(SYNC_INTERVAL_INCREMENT, SYNC_INTERVAL_LARGE_INCREMENT)
+        self.sync_interval_spin.set_value(DEFAULT_SYNC_INTERVAL_MINUTES)
         grid.attach(self.sync_interval_spin, 1, row, 1, 1)
 
         # Add to notebook
@@ -282,7 +294,7 @@ class SettingsDialog(Gtk.Dialog):
         else:
             self.gcal_status_label.set_markup("<span color='gray'>Not connected</span>")
 
-        gcal_ids = self.db.get_config('gcal_calendar_ids', ['primary'])
+        gcal_ids = self.db.get_config('gcal_calendar_ids', DEFAULT_CALENDAR_IDS)
         gcal_ids_text = '\n'.join(gcal_ids)
         buffer = self.gcal_ids_textview.get_buffer()
         buffer.set_text(gcal_ids_text)
@@ -344,7 +356,7 @@ class SettingsDialog(Gtk.Dialog):
             """Run OAuth flow in background thread."""
             try:
                 # Create sync instance and trigger authentication
-                gcal_ids = self.db.get_config('gcal_calendar_ids', ['primary'])
+                gcal_ids = self.db.get_config('gcal_calendar_ids', DEFAULT_CALENDAR_IDS)
                 gcal_sync = GoogleCalendarSync(self.db, gcal_ids)
 
                 # This will trigger OAuth flow if needed
