@@ -230,9 +230,28 @@ class TodoManagementWidget(Gtk.Box):
             return
 
         todo_id = model.get_value(iter, 0)
+        todo_text = model.get_value(iter, 1)
         is_active = model.get_value(iter, 3)
 
         if is_active:
+            # Confirm before completing
+            dialog = Gtk.MessageDialog(
+                parent=self.get_toplevel(),
+                flags=Gtk.DialogFlags.MODAL,
+                message_type=Gtk.MessageType.QUESTION,
+                buttons=Gtk.ButtonsType.YES_NO,
+                text="Mark TODO as Complete?"
+            )
+            dialog.format_secondary_text(
+                f"Are you sure you want to mark this TODO as complete?\n\n\"{todo_text}\"\n\n"
+                "You can reactivate it later if needed."
+            )
+            response = dialog.run()
+            dialog.destroy()
+
+            if response != Gtk.ResponseType.YES:
+                return
+
             self.db.complete_local_todo(todo_id)
         else:
             self.db.activate_local_todo(todo_id)
