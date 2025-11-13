@@ -269,7 +269,7 @@ class WhatNowApp(Gtk.Application):
                 logger.info("Running background sync")
 
                 # Sync GitHub if configured
-                github_token = self.db.get_config('github_token')
+                github_token = self.db.get_github_token()
                 github_org = self.db.get_config('github_org')
                 github_project = self.db.get_config('github_project')
 

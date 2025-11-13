@@ -218,7 +218,7 @@ class SettingsDialog(Gtk.Dialog):
         self.sync_interval_spin.set_value(sync_interval)
 
         # GitHub settings
-        github_token = self.db.get_config('github_token', '')
+        github_token = self.db.get_github_token() or ''
         self.github_token_entry.set_text(github_token)
 
         github_org = self.db.get_config('github_org', '')
@@ -246,7 +246,11 @@ class SettingsDialog(Gtk.Dialog):
         self.db.set_config('sync_interval', self.sync_interval_spin.get_value())
 
         # GitHub settings
-        self.db.set_config('github_token', self.github_token_entry.get_text().strip())
+        token_text = self.github_token_entry.get_text().strip()
+        if token_text:
+            self.db.set_github_token(token_text)
+        else:
+            self.db.delete_github_token()
         self.db.set_config('github_org', self.github_org_entry.get_text().strip())
         self.db.set_config('github_project', int(self.github_project_spin.get_value()))
 

@@ -5,11 +5,14 @@ from pathlib import Path
 from datetime import datetime
 from typing import List, Dict, Optional, Any
 import json
+import logging
 
 from sqlalchemy import create_engine, select, and_
 from sqlalchemy.orm import Session, sessionmaker
 
 from .models import Base, Ping, GitHubTask, CalendarEvent, SyncMetadata, Config, WorkSession, LocalTODO
+
+logger = logging.getLogger(__name__)
 
 
 class Database:
@@ -35,6 +38,13 @@ class Database:
 
         # Create all tables
         Base.metadata.create_all(self.engine)
+
+        # Initialize secure credential storage
+        from .credentials import CredentialStore
+        self._credentials = CredentialStore(db=self)
+
+        # Migrate existing plaintext credentials
+        self._migrate_plaintext_credentials()
 
     def get_session(self) -> Session:
         """Get a new database session.
@@ -675,6 +685,62 @@ class Database:
             if config:
                 return json.loads(config.value)
             return default
+
+    # Secure credential management
+    def _migrate_plaintext_credentials(self):
+        """Migrate plaintext credentials from database to secure storage."""
+        # Check for plaintext GitHub token
+        plaintext_token = self.get_config('github_token')
+        if plaintext_token and isinstance(plaintext_token, str):
+            # Check if it's not already migrated (migration marker would be a dict)
+            if not plaintext_token.startswith('_migrated_'):
+                if self._credentials.migrate_plaintext_credential('github_token', plaintext_token):
+                    # Mark as migrated in config
+                    self.set_config('github_token', '_migrated_to_secure_storage')
+                    logger.info("Migrated GitHub token to secure storage")
+
+    def set_github_token(self, token: str):
+        """Store GitHub token securely.
+
+        Args:
+            token: GitHub personal access token
+        """
+        self._credentials.set_credential('github_token', token)
+        # Update config to mark as using secure storage
+        self.set_config('github_token', '_migrated_to_secure_storage')
+
+    def get_github_token(self) -> Optional[str]:
+        """Retrieve GitHub token from secure storage.
+
+        Returns:
+            GitHub token or None if not set
+        """
+        # Try secure storage first
+        token = self._credentials.get_credential('github_token')
+        if token:
+            return token
+
+        # Check if there's a plaintext token (backward compatibility)
+        config_value = self.get_config('github_token')
+        if config_value and config_value != '_migrated_to_secure_storage':
+            # Found plaintext token, migrate it
+            self.set_github_token(config_value)
+            return config_value
+
+        return None
+
+    def delete_github_token(self):
+        """Delete GitHub token from secure storage."""
+        self._credentials.delete_credential('github_token')
+        self.set_config('github_token', None)
+
+    def get_credential_storage_info(self) -> str:
+        """Get information about credential storage backend.
+
+        Returns:
+            Human-readable description of storage backend
+        """
+        return self._credentials.get_storage_info()
 
     def _resolve_ping_activity(self, ping: Ping, session) -> str:
         """Resolve activity description for a ping.
