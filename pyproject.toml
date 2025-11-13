@@ -33,6 +33,7 @@ dependencies = [
     "sqlalchemy>=2.0.0",
     "keyring>=23.0.0",
     "cryptography>=38.0.0",
+    "alembic>=1.10.0",
 ]
 
 [project.optional-dependencies]

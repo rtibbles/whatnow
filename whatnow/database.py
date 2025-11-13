@@ -36,8 +36,8 @@ class Database:
         self.engine = create_engine(f"sqlite:///{db_path}", echo=False)
         self.SessionLocal = sessionmaker(bind=self.engine)
 
-        # Create all tables
-        Base.metadata.create_all(self.engine)
+        # Run database migrations
+        self._run_migrations()
 
         # Initialize secure credential storage
         from .credentials import CredentialStore
@@ -45,6 +45,33 @@ class Database:
 
         # Migrate existing plaintext credentials
         self._migrate_plaintext_credentials()
+
+    def _run_migrations(self):
+        """Run Alembic migrations to upgrade database schema."""
+        try:
+            from alembic.config import Config
+            from alembic import command
+            import tempfile
+            import shutil
+
+            # Get the project root directory
+            project_root = Path(__file__).parent.parent
+
+            # Create Alembic config
+            alembic_cfg = Config(str(project_root / "alembic.ini"))
+
+            # Set the database URL
+            alembic_cfg.set_main_option("sqlalchemy.url", f"sqlite:///{self.db_path}")
+
+            # Run upgrade to head
+            logger.info("Checking for database migrations...")
+            command.upgrade(alembic_cfg, "head")
+
+        except Exception as e:
+            # If migrations fail, fall back to creating tables directly
+            # This handles the case where Alembic isn't set up yet or there are issues
+            logger.warning(f"Migration check failed: {e}, falling back to direct table creation")
+            Base.metadata.create_all(self.engine)
 
     def get_session(self) -> Session:
         """Get a new database session.
