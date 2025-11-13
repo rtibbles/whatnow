@@ -1,4 +1,22 @@
-"""Main entry point for WhatNow application."""
+"""Main entry point for WhatNow application.
+
+WhatNow is a TagTime-style activity tracker that uses Poisson-distributed
+random pings to sample what you're working on throughout the day. This
+statistical sampling approach means the fraction of pings tagged with a given
+activity approximates the fraction of time spent on that activity.
+
+Key Features:
+- Poisson-distributed random pings (default: 45-minute average)
+- Integration with GitHub Projects for task tracking
+- Integration with Google Calendar for automatic meeting detection
+- Local TODO management
+- Statistical time analysis and reporting
+- Background sync for external data sources
+- System tray integration
+
+This module contains the main GTK application class that coordinates all
+components: the ping scheduler, sync threads, UI windows, and system tray icon.
+"""
 
 import gi
 gi.require_version('Gtk', '3.0')

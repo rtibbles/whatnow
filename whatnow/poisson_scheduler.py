@@ -1,4 +1,31 @@
-"""Poisson-distributed ping scheduler for TagTime-style activity tracking."""
+"""Poisson-distributed ping scheduler for TagTime-style activity tracking.
+
+This module implements a scheduler that triggers "pings" (activity prompts)
+at random intervals following a Poisson distribution. This statistical sampling
+approach is the core of the TagTime methodology.
+
+Mathematical Background:
+The Poisson distribution ensures that pings occur randomly with a specified
+average interval. This means:
+- If average_gap = 45 minutes, you get ~32 pings per day
+- The fraction of pings tagged with activity X approximates the fraction of
+  time spent on activity X
+- The randomness prevents gaming the system or anticipating pings
+
+Implementation:
+The scheduler runs in a background thread and uses exponentially distributed
+intervals between pings (characteristic of Poisson processes). It handles
+graceful shutdown and can be started/stopped dynamically.
+
+Usage:
+    scheduler = PoissonScheduler(
+        average_gap_minutes=45,
+        ping_callback=lambda: print("Ping!")
+    )
+    scheduler.start()
+    # ... later ...
+    scheduler.stop()
+"""
 
 import threading
 import time

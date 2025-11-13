@@ -1,4 +1,33 @@
-"""Database management for WhatNow using SQLAlchemy."""
+"""Database management for WhatNow using SQLAlchemy.
+
+This module provides the Database class, which is the main interface for all
+database operations in WhatNow. It uses SQLAlchemy ORM with SQLite for local
+storage and includes Alembic integration for schema migrations.
+
+Key Responsibilities:
+- Ping storage and retrieval with activity resolution
+- GitHub task synchronization data
+- Google Calendar event caching
+- Local TODO management
+- Work session tracking
+- Sync metadata and status tracking
+- Secure credential storage (via keyring integration)
+- Database migrations via Alembic
+
+Thread Safety:
+The Database class uses scoped_session to ensure thread-local sessions,
+making it safe to use from multiple threads (ping scheduler, sync threads,
+UI thread).
+
+Database Schema:
+- pings: Activity ping records with timestamps and tags
+- local_todos: User-created TODO items
+- github_tasks: Synced tasks from GitHub Projects
+- calendar_events: Synced events from Google Calendar
+- work_sessions: Explicit work session start/stop tracking
+- sync_metadata: Last sync times and status for external services
+- config: Key-value configuration storage
+"""
 
 import os
 from pathlib import Path
