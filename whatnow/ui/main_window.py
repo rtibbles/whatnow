@@ -26,6 +26,10 @@ class MainWindow(Gtk.ApplicationWindow):
         self.db = db
         self.on_settings_click = on_settings_click
 
+        # Pagination state for pings
+        self.current_page = 0
+        self.page_size = 100
+
         # Set window properties
         self.set_default_size(800, 600)
         self.set_border_width(0)
@@ -132,6 +136,24 @@ class MainWindow(Gtk.ApplicationWindow):
 
         scrolled.add(self.pings_view)
         vbox.pack_start(scrolled, True, True, 0)
+
+        # Pagination controls
+        pagination_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        pagination_box.set_halign(Gtk.Align.CENTER)
+
+        self.prev_button = Gtk.Button(label="◀ Previous")
+        self.prev_button.connect("clicked", self._on_prev_page_clicked)
+        pagination_box.pack_start(self.prev_button, False, False, 0)
+
+        self.page_label = Gtk.Label()
+        self.page_label.set_markup("<b>Page 1 of 1</b>")
+        pagination_box.pack_start(self.page_label, False, False, 10)
+
+        self.next_button = Gtk.Button(label="Next ▶")
+        self.next_button.connect("clicked", self._on_next_page_clicked)
+        pagination_box.pack_start(self.next_button, False, False, 0)
+
+        vbox.pack_start(pagination_box, False, False, 6)
 
         # Info label
         self.pings_info_label = Gtk.Label()
@@ -248,7 +270,19 @@ class MainWindow(Gtk.ApplicationWindow):
     def _refresh_pings(self):
         """Refresh the pings list."""
         try:
-            pings = self.db.get_pings(limit=100)
+            # Get total count
+            total_pings = self.db.count_pings()
+            total_pages = max(1, (total_pings + self.page_size - 1) // self.page_size)
+
+            # Ensure current page is valid
+            if self.current_page >= total_pages:
+                self.current_page = max(0, total_pages - 1)
+
+            # Calculate offset
+            offset = self.current_page * self.page_size
+
+            # Fetch pings for current page
+            pings = self.db.get_pings(limit=self.page_size, offset=offset)
             self.pings_store.clear()
 
             for ping in pings:
@@ -264,8 +298,16 @@ class MainWindow(Gtk.ApplicationWindow):
                     ping['id']
                 ])
 
+            # Update pagination controls
+            self.page_label.set_markup(f"<b>Page {self.current_page + 1} of {total_pages}</b>")
+            self.prev_button.set_sensitive(self.current_page > 0)
+            self.next_button.set_sensitive(self.current_page < total_pages - 1)
+
+            # Update info label
+            start_idx = offset + 1
+            end_idx = min(offset + len(pings), total_pings)
             self.pings_info_label.set_markup(
-                f"<small>Showing {len(pings)} recent pings</small>"
+                f"<small>Showing {start_idx}-{end_idx} of {total_pings} pings</small>"
             )
         except Exception as e:
             self.pings_info_label.set_markup(
@@ -324,6 +366,20 @@ class MainWindow(Gtk.ApplicationWindow):
                 f"<small>Error loading events: {e}</small>"
             )
 
+    def _on_prev_page_clicked(self, button):
+        """Handle previous page button click."""
+        if self.current_page > 0:
+            self.current_page -= 1
+            self._refresh_pings()
+
+    def _on_next_page_clicked(self, button):
+        """Handle next page button click."""
+        total_pings = self.db.count_pings()
+        total_pages = max(1, (total_pings + self.page_size - 1) // self.page_size)
+        if self.current_page < total_pages - 1:
+            self.current_page += 1
+            self._refresh_pings()
+
     def _on_settings_clicked(self, button):
         """Handle settings button click."""
         if self.on_settings_click:
@@ -331,12 +387,14 @@ class MainWindow(Gtk.ApplicationWindow):
 
     def _on_refresh_clicked(self, button):
         """Handle refresh button click."""
+        self.current_page = 0  # Reset to first page on refresh
         self._refresh_pings()
         self.refresh_tasks()
         self.refresh_events()
 
     def refresh_all(self):
         """Refresh all views."""
+        self.current_page = 0  # Reset to first page on refresh
         self._refresh_pings()
         self.refresh_tasks()
         self.refresh_events()

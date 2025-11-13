@@ -157,6 +157,18 @@ class Database:
 
             return result
 
+    def count_pings(self) -> int:
+        """Get total count of pings in database.
+
+        Returns:
+            Total number of pings
+        """
+        with self.get_session() as session:
+            from sqlalchemy import func
+            stmt = select(func.count(Ping.id))
+            count = session.execute(stmt).scalar()
+            return count or 0
+
     def get_pings_by_date_range(self, start_time: int, end_time: int) -> List[Dict[str, Any]]:
         """Get pings within a date range.
 
@@ -582,6 +594,36 @@ class Database:
                 for t in tasks
             ]
 
+    def get_github_task_by_id(self, task_id: str) -> Optional[Dict[str, Any]]:
+        """Get a specific GitHub task by ID.
+
+        Args:
+            task_id: Task ID
+
+        Returns:
+            Task dictionary or None if not found
+        """
+        with self.get_session() as session:
+            task = session.get(GitHubTask, task_id)
+
+            if not task:
+                return None
+
+            return {
+                'id': task.id,
+                'title': task.title,
+                'body': task.body,
+                'state': task.state,
+                'project_name': task.project_name,
+                'iteration': task.iteration,
+                'assignees': task.assignees or [],
+                'labels': task.labels or [],
+                'url': task.url,
+                'created_at': task.created_at,
+                'updated_at': task.updated_at,
+                'synced_at': task.synced_at
+            }
+
     # Calendar events operations
     def upsert_calendar_event(self, event: Dict[str, Any]):
         """Insert or update a calendar event.
@@ -656,6 +698,34 @@ class Database:
                 }
                 for e in events
             ]
+
+    def get_calendar_event_by_id(self, event_id: str) -> Optional[Dict[str, Any]]:
+        """Get a specific calendar event by ID.
+
+        Args:
+            event_id: Event ID
+
+        Returns:
+            Event dictionary or None if not found
+        """
+        with self.get_session() as session:
+            event = session.get(CalendarEvent, event_id)
+
+            if not event:
+                return None
+
+            return {
+                'id': event.id,
+                'summary': event.summary,
+                'description': event.description,
+                'start_time': event.start_time,
+                'end_time': event.end_time,
+                'location': event.location,
+                'calendar_id': event.calendar_id,
+                'attendees': event.attendees or [],
+                'url': event.url,
+                'synced_at': event.synced_at
+            }
 
     # Sync metadata operations
     def update_sync_metadata(self, service: str, success: bool = True,
