@@ -4,6 +4,7 @@ import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, GLib
 import sys
+import signal
 import logging
 import threading
 import time
@@ -35,8 +36,12 @@ class WhatNowApp(Gtk.Application):
         self.main_window: Optional[MainWindow] = None
         self.tray_icon: Optional[TrayIcon] = None
         self.sync_thread: Optional[threading.Thread] = None
-        self.sync_running = False
+        self.shutdown_event = threading.Event()
         self.tooltip_update_timer = None
+
+        # Register signal handlers for graceful shutdown
+        signal.signal(signal.SIGINT, self._handle_signal)
+        signal.signal(signal.SIGTERM, self._handle_signal)
 
     def do_activate(self):
         """Handle application activation."""
@@ -87,9 +92,23 @@ class WhatNowApp(Gtk.Application):
         # Show main window
         self.main_window.present()
 
+    def _handle_signal(self, signum, frame):
+        """Handle SIGINT and SIGTERM for graceful shutdown.
+
+        Args:
+            signum: Signal number
+            frame: Current stack frame
+        """
+        logger.info(f"Received signal {signum}, initiating graceful shutdown")
+        # Quit the GTK application
+        self.quit()
+
     def do_shutdown(self):
         """Handle application shutdown."""
         logger.info("Shutting down WhatNow")
+
+        # Signal all threads to stop
+        self.shutdown_event.set()
 
         # Stop tooltip timer
         if self.tooltip_update_timer:
@@ -97,12 +116,16 @@ class WhatNowApp(Gtk.Application):
 
         # Stop scheduler
         if self.scheduler:
+            logger.info("Stopping ping scheduler...")
             self.scheduler.stop()
 
         # Stop sync thread
         self.sync_running = False
         if self.sync_thread and self.sync_thread.is_alive():
-            self.sync_thread.join(timeout=5)
+            logger.info("Waiting for sync thread to finish...")
+            self.sync_thread.join(timeout=10)
+            if self.sync_thread.is_alive():
+                logger.warning("Sync thread did not stop gracefully")
 
         # End work session if active
         if self.db and self.db.is_working():
@@ -112,6 +135,7 @@ class WhatNowApp(Gtk.Application):
         # Close database
         if self.db:
             self.db.close()
+            logger.info("Database closed")
 
         Gtk.Application.do_shutdown(self)
 
@@ -229,16 +253,17 @@ class WhatNowApp(Gtk.Application):
     def _start_sync_thread(self):
         """Start background sync thread."""
         self.sync_running = True
-        self.sync_thread = threading.Thread(target=self._sync_loop, daemon=True)
+        self.sync_thread = threading.Thread(target=self._sync_loop, daemon=False)
         self.sync_thread.start()
         logger.info("Background sync thread started")
 
     def _sync_loop(self):
         """Background sync loop."""
-        # Wait a bit before first sync
-        time.sleep(10)
+        # Wait a bit before first sync (interruptible)
+        if self.shutdown_event.wait(timeout=10):
+            return  # Shutdown requested during initial wait
 
-        while self.sync_running:
+        while self.sync_running and not self.shutdown_event.is_set():
             try:
                 sync_interval = self.db.get_config('sync_interval', 30)
                 logger.info("Running background sync")
@@ -262,6 +287,10 @@ class WhatNowApp(Gtk.Application):
                     except Exception as e:
                         logger.error(f"GitHub sync error: {e}")
 
+                # Check for shutdown before continuing
+                if self.shutdown_event.is_set():
+                    break
+
                 # Sync Google Calendar if configured
                 gcal_connected = self.db.get_config('gcal_connected', False)
                 gcal_ids = self.db.get_config('gcal_calendar_ids', ['primary'])
@@ -275,12 +304,17 @@ class WhatNowApp(Gtk.Application):
                     except Exception as e:
                         logger.error(f"Google Calendar sync error: {e}")
 
-                # Wait for next sync
-                time.sleep(sync_interval * 60)
+                # Wait for next sync (interruptible)
+                if self.shutdown_event.wait(timeout=sync_interval * 60):
+                    break  # Shutdown requested during wait
 
             except Exception as e:
                 logger.error(f"Error in sync loop: {e}")
-                time.sleep(60)  # Wait a minute before retrying
+                # Wait a minute before retrying (interruptible)
+                if self.shutdown_event.wait(timeout=60):
+                    break
+
+        logger.info("Sync loop ended")
 
     def _refresh_github_tasks(self):
         """Refresh GitHub tasks in main window."""

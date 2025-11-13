@@ -42,7 +42,7 @@ class PoissonScheduler:
 
         self._running = True
         self._stop_event.clear()
-        self._thread = threading.Thread(target=self._run_scheduler, daemon=True)
+        self._thread = threading.Thread(target=self._run_scheduler, daemon=False)
         self._thread.start()
         logger.info(f"Poisson scheduler started with average gap of {self.average_gap_minutes} minutes")
 

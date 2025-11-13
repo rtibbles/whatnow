@@ -86,14 +86,18 @@ class Database:
             offset: Number of pings to skip
 
         Returns:
-            List of ping dictionaries
+            List of ping dictionaries with activity descriptions
         """
         with self.get_session() as session:
             stmt = select(Ping).order_by(Ping.timestamp.desc()).limit(limit).offset(offset)
             pings = session.execute(stmt).scalars().all()
 
-            return [
-                {
+            result = []
+            for p in pings:
+                # Resolve activity description
+                activity = self._resolve_ping_activity(p, session)
+
+                result.append({
                     'id': p.id,
                     'timestamp': p.timestamp,
                     'todo_id': p.todo_id,
@@ -102,10 +106,11 @@ class Database:
                     'notes': p.notes,
                     'event_id': p.event_id,
                     'is_meeting': p.is_meeting,
-                    'created_at': p.created_at
-                }
-                for p in pings
-            ]
+                    'created_at': p.created_at,
+                    'activity': activity
+                })
+
+            return result
 
     def get_pings_by_date_range(self, start_time: int, end_time: int) -> List[Dict[str, Any]]:
         """Get pings within a date range.
@@ -115,7 +120,7 @@ class Database:
             end_time: End timestamp (inclusive)
 
         Returns:
-            List of ping dictionaries
+            List of ping dictionaries with activity descriptions
         """
         with self.get_session() as session:
             stmt = (
@@ -125,8 +130,12 @@ class Database:
             )
             pings = session.execute(stmt).scalars().all()
 
-            return [
-                {
+            result = []
+            for p in pings:
+                # Resolve activity description
+                activity = self._resolve_ping_activity(p, session)
+
+                result.append({
                     'id': p.id,
                     'timestamp': p.timestamp,
                     'todo_id': p.todo_id,
@@ -135,10 +144,11 @@ class Database:
                     'notes': p.notes,
                     'event_id': p.event_id,
                     'is_meeting': p.is_meeting,
-                    'created_at': p.created_at
-                }
-                for p in pings
-            ]
+                    'created_at': p.created_at,
+                    'activity': activity
+                })
+
+            return result
 
     # Work session operations
     def start_work_session(self) -> int:
@@ -665,6 +675,50 @@ class Database:
             if config:
                 return json.loads(config.value)
             return default
+
+    def _resolve_ping_activity(self, ping: Ping, session) -> str:
+        """Resolve activity description for a ping.
+
+        Args:
+            ping: Ping object
+            session: Database session
+
+        Returns:
+            Human-readable activity description
+        """
+        # If no TODO specified, it was dismissed
+        if not ping.todo_id:
+            return "(Ping dismissed)"
+
+        # Meeting
+        if ping.is_meeting or ping.todo_type == 'meeting':
+            # Try to get event details
+            if ping.event_id:
+                event = session.get(CalendarEvent, ping.event_id)
+                if event:
+                    return f"Meeting: {event.summary}"
+            return "Meeting"
+
+        # GitHub task
+        if ping.todo_type == 'github':
+            task = session.get(GitHubTask, ping.todo_id)
+            if task:
+                return f"GitHub: {task.title}"
+            return f"GitHub Task (ID: {ping.todo_id})"
+
+        # Local TODO
+        if ping.todo_type == 'local':
+            try:
+                todo_id_int = int(ping.todo_id)
+                todo = session.get(LocalTODO, todo_id_int)
+                if todo:
+                    return f"TODO: {todo.text}"
+            except (ValueError, TypeError):
+                pass
+            return f"Local TODO (ID: {ping.todo_id})"
+
+        # Unknown type
+        return f"{ping.todo_type}: {ping.todo_id}" if ping.todo_type else ping.todo_id
 
     def close(self):
         """Close database connection."""

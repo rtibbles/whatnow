@@ -264,8 +264,26 @@ class SettingsDialog(Gtk.Dialog):
 
     def _on_connect_calendar_clicked(self, button):
         """Handle Google Calendar connection button click."""
+        from ..sync.gcal_credentials import validate_credentials
         from ..sync.gcal_sync import GoogleCalendarSync
         import threading
+
+        # Validate credentials first
+        creds_valid, error_msg = validate_credentials()
+        if not creds_valid:
+            # Show error dialog
+            dialog = Gtk.MessageDialog(
+                parent=self,
+                modal=True,
+                destroy_with_parent=True,
+                message_type=Gtk.MessageType.ERROR,
+                buttons=Gtk.ButtonsType.OK,
+                text="OAuth Credentials Not Configured"
+            )
+            dialog.format_secondary_text(error_msg)
+            dialog.run()
+            dialog.destroy()
+            return
 
         button.set_sensitive(False)
         self.gcal_status_label.set_markup("<span color='blue'>Connecting...</span>")

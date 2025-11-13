@@ -32,3 +32,42 @@ try:
     from .gcal_credentials_local import GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
 except ImportError:
     pass  # Use the embedded credentials above
+
+
+def validate_credentials() -> tuple[bool, str]:
+    """Validate that OAuth credentials are properly configured.
+
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    # Check for placeholder values
+    if "123456789" in GOOGLE_CLIENT_ID or "example" in GOOGLE_CLIENT_ID.lower():
+        return False, (
+            "Google Calendar OAuth credentials are not configured.\n\n"
+            "The app is using placeholder credentials that will not work. "
+            "To enable Google Calendar integration:\n\n"
+            "1. Go to https://console.cloud.google.com/\n"
+            "2. Create a project and enable Google Calendar API\n"
+            "3. Create OAuth 2.0 Client ID (Desktop app type)\n"
+            "4. Download credentials or create 'gcal_credentials_local.py'\n\n"
+            "See docs/GOOGLE_OAUTH_SETUP.md for detailed instructions."
+        )
+
+    if "example" in GOOGLE_CLIENT_SECRET.lower() or "YOUR_" in GOOGLE_CLIENT_SECRET:
+        return False, (
+            "Google Calendar OAuth client secret is not configured.\n\n"
+            "Please set up real OAuth credentials. "
+            "See docs/GOOGLE_OAUTH_SETUP.md for instructions."
+        )
+
+    return True, ""
+
+
+def are_credentials_configured() -> bool:
+    """Check if OAuth credentials appear to be properly configured.
+
+    Returns:
+        True if credentials look valid, False if they appear to be placeholders
+    """
+    valid, _ = validate_credentials()
+    return valid
