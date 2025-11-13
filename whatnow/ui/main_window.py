@@ -66,6 +66,15 @@ class MainWindow(Gtk.ApplicationWindow):
         self.notebook = Gtk.Notebook()
         vbox.pack_start(self.notebook, True, True, 0)
 
+        # Create status bar
+        self.statusbar = Gtk.Statusbar()
+        self.statusbar.set_margin_start(6)
+        self.statusbar.set_margin_end(6)
+        self.statusbar.set_margin_top(3)
+        self.statusbar.set_margin_bottom(3)
+        self.status_context_id = self.statusbar.get_context_id("main")
+        vbox.pack_start(self.statusbar, False, False, 0)
+
         # Create pings view
         self._create_pings_view()
 
@@ -84,6 +93,9 @@ class MainWindow(Gtk.ApplicationWindow):
         self.time_analysis_widget = TimeAnalysisWidget(db)
         analysis_label = Gtk.Label(label="Time Analysis")
         self.notebook.append_page(self.time_analysis_widget, analysis_label)
+
+        # Set up keyboard shortcuts
+        self._setup_keyboard_shortcuts()
 
         # Show all widgets
         self.show_all()
@@ -267,6 +279,47 @@ class MainWindow(Gtk.ApplicationWindow):
         label = Gtk.Label(label="Calendar")
         self.notebook.append_page(vbox, label)
 
+    def _setup_keyboard_shortcuts(self):
+        """Set up keyboard shortcuts for the application."""
+        accel_group = Gtk.AccelGroup()
+        self.add_accel_group(accel_group)
+
+        # Ctrl+R: Refresh
+        refresh_key, refresh_mod = Gtk.accelerator_parse("<Control>r")
+        accel_group.connect(
+            refresh_key,
+            refresh_mod,
+            Gtk.AccelFlags.VISIBLE,
+            lambda *args: self._on_refresh_clicked(None)
+        )
+
+        # Ctrl+comma: Settings
+        settings_key, settings_mod = Gtk.accelerator_parse("<Control>comma")
+        accel_group.connect(
+            settings_key,
+            settings_mod,
+            Gtk.AccelFlags.VISIBLE,
+            lambda *args: self._on_settings_clicked(None)
+        )
+
+        # Ctrl+N: New TODO (switch to TODO tab)
+        new_todo_key, new_todo_mod = Gtk.accelerator_parse("<Control>n")
+        accel_group.connect(
+            new_todo_key,
+            new_todo_mod,
+            Gtk.AccelFlags.VISIBLE,
+            self._on_new_todo_shortcut
+        )
+
+    def _on_new_todo_shortcut(self, *args):
+        """Handle Ctrl+N keyboard shortcut to create new TODO."""
+        # Switch to TODO management tab (index 3)
+        self.notebook.set_current_page(3)
+        # Trigger the add TODO dialog
+        if hasattr(self.todo_widget, '_on_add_clicked'):
+            self.todo_widget._on_add_clicked(None)
+        return True
+
     def _refresh_pings(self):
         """Refresh the pings list."""
         try:
@@ -387,10 +440,14 @@ class MainWindow(Gtk.ApplicationWindow):
 
     def _on_refresh_clicked(self, button):
         """Handle refresh button click."""
+        self.show_loading("Refreshing...")
         self.current_page = 0  # Reset to first page on refresh
         self._refresh_pings()
         self.refresh_tasks()
         self.refresh_events()
+        self.set_status("Refreshed successfully")
+        # Clear status after 3 seconds
+        GLib.timeout_add_seconds(3, self.clear_status)
 
     def refresh_all(self):
         """Refresh all views."""
@@ -402,3 +459,28 @@ class MainWindow(Gtk.ApplicationWindow):
             self.todo_widget.refresh()
         if hasattr(self, 'time_analysis_widget'):
             self.time_analysis_widget.refresh()
+
+    def set_status(self, message: str):
+        """Set status bar message.
+
+        Args:
+            message: Status message to display
+        """
+        self.statusbar.pop(self.status_context_id)
+        self.statusbar.push(self.status_context_id, message)
+
+    def clear_status(self):
+        """Clear status bar message."""
+        self.statusbar.pop(self.status_context_id)
+
+    def show_loading(self, message: str = "Loading..."):
+        """Show loading indicator in status bar.
+
+        Args:
+            message: Loading message to display
+        """
+        self.set_status(f"⟳ {message}")
+
+    def hide_loading(self):
+        """Hide loading indicator."""
+        self.clear_status()

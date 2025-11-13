@@ -153,6 +153,19 @@ class SettingsDialog(Gtk.Dialog):
         self.github_project_spin.set_value(1)
         vbox.pack_start(self.github_project_spin, False, False, 0)
 
+        # Separator
+        vbox.pack_start(Gtk.Separator(), False, False, 5)
+
+        # Test connection button
+        test_button = Gtk.Button(label="Test Connection")
+        test_button.connect("clicked", self._on_test_github_clicked)
+        vbox.pack_start(test_button, False, False, 0)
+
+        # Sync status
+        self.github_status_label = Gtk.Label()
+        self.github_status_label.set_xalign(0)
+        vbox.pack_start(self.github_status_label, False, False, 5)
+
         # Add to notebook
         label = Gtk.Label(label="GitHub")
         notebook.append_page(vbox, label)
@@ -227,10 +240,45 @@ class SettingsDialog(Gtk.Dialog):
         github_project = self.db.get_config('github_project', 1)
         self.github_project_spin.set_value(github_project)
 
+        # GitHub sync status
+        github_sync_meta = self.db.get_sync_metadata('github')
+        if github_sync_meta:
+            from datetime import datetime
+            last_sync = github_sync_meta.get('last_sync')
+            if last_sync:
+                last_sync_dt = datetime.fromtimestamp(last_sync)
+                last_sync_str = last_sync_dt.strftime('%Y-%m-%d %H:%M:%S')
+                success = github_sync_meta.get('success', False)
+                if success:
+                    self.github_status_label.set_markup(
+                        f"<small>Last synced: {last_sync_str}</small>"
+                    )
+                else:
+                    error_msg = github_sync_meta.get('error_message', 'Unknown error')
+                    self.github_status_label.set_markup(
+                        f"<small><span color='red'>Last sync failed: {error_msg[:50]}</span>\n"
+                        f"Time: {last_sync_str}</small>"
+                    )
+
         # Google Calendar settings
         gcal_connected = self.db.get_config('gcal_connected', False)
+        gcal_sync_meta = self.db.get_sync_metadata('gcal')
+
         if gcal_connected:
-            self.gcal_status_label.set_markup("<span color='green'>✓ Connected</span>")
+            status_text = "<span color='green'>✓ Connected</span>"
+            if gcal_sync_meta:
+                from datetime import datetime
+                last_sync = gcal_sync_meta.get('last_sync')
+                if last_sync:
+                    last_sync_dt = datetime.fromtimestamp(last_sync)
+                    last_sync_str = last_sync_dt.strftime('%Y-%m-%d %H:%M:%S')
+                    success = gcal_sync_meta.get('success', False)
+                    if success:
+                        status_text += f"\n<small>Last synced: {last_sync_str}</small>"
+                    else:
+                        error_msg = gcal_sync_meta.get('error_message', 'Unknown error')
+                        status_text += f"\n<small><span color='red'>Last sync failed: {error_msg[:50]}</span></small>"
+            self.gcal_status_label.set_markup(status_text)
         else:
             self.gcal_status_label.set_markup("<span color='gray'>Not connected</span>")
 
@@ -337,7 +385,71 @@ class SettingsDialog(Gtk.Dialog):
                         if isinstance(widget, Gtk.Button):
                             widget.set_sensitive(True)
 
-        return False  # Don't repeat
+    def _on_test_github_clicked(self, button):
+        """Handle GitHub test connection button click."""
+        from ..sync.github_sync import GitHubSync
+        import threading
+        from gi.repository import GLib
+
+        # Get current settings
+        token = self.github_token_entry.get_text().strip()
+        org = self.github_org_entry.get_text().strip()
+        project = int(self.github_project_spin.get_value())
+
+        if not token or not org:
+            self.github_status_label.set_markup(
+                "<small><span color='red'>Please enter token and organization</span></small>"
+            )
+            return
+
+        # Disable button and show testing status
+        button.set_sensitive(False)
+        self.github_status_label.set_markup("<small><span color='blue'>⟳ Testing connection...</span></small>")
+
+        def test():
+            """Test GitHub connection in background thread."""
+            try:
+                github_sync = GitHubSync(self.db, token, org, project)
+                # Try to fetch current iteration (lightweight test)
+                iteration = github_sync._get_current_iteration()
+
+                # If we got here without error, connection works
+                GLib.idle_add(self._on_github_test_complete, True, f"Connected successfully! Current iteration: {iteration or 'None'}")
+            except Exception as e:
+                error_msg = str(e)
+                GLib.idle_add(self._on_github_test_complete, False, error_msg)
+
+        # Run in background thread
+        thread = threading.Thread(target=test, daemon=True)
+        thread.start()
+
+    def _on_github_test_complete(self, success: bool, message: str):
+        """Handle GitHub test completion (called on main thread).
+
+        Args:
+            success: Whether the test succeeded
+            message: Result message
+        """
+        # Find and re-enable the test button
+        for child in self.get_content_area().get_children():
+            if isinstance(child, Gtk.Notebook):
+                for page_num in range(child.get_n_pages()):
+                    page = child.get_nth_page(page_num)
+                    for widget in page.get_children():
+                        if isinstance(widget, Gtk.Button) and widget.get_label() == "Test Connection":
+                            widget.set_sensitive(True)
+
+        # Update status label
+        if success:
+            self.github_status_label.set_markup(
+                f"<small><span color='green'>✓ {message[:80]}</span></small>"
+            )
+        else:
+            self.github_status_label.set_markup(
+                f"<small><span color='red'>✗ Connection failed: {message[:80]}</span></small>"
+            )
+
+        return False
 
     def run_and_save(self) -> bool:
         """Run the dialog and save settings if OK was clicked.

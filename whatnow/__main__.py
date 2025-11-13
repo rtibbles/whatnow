@@ -275,6 +275,9 @@ class WhatNowApp(Gtk.Application):
 
                 if github_token and github_org and github_project:
                     try:
+                        # Show sync status
+                        GLib.idle_add(self._set_sync_status, "Syncing GitHub...")
+
                         github_sync = GitHubSync(
                             self.db,
                             github_token,
@@ -284,8 +287,12 @@ class WhatNowApp(Gtk.Application):
                         if github_sync.sync():
                             # Update main window
                             GLib.idle_add(self._refresh_github_tasks)
+                            GLib.idle_add(self._set_sync_status, "GitHub synced")
+                        else:
+                            GLib.idle_add(self._set_sync_status, "GitHub sync failed")
                     except Exception as e:
                         logger.error(f"GitHub sync error: {e}")
+                        GLib.idle_add(self._set_sync_status, f"GitHub sync error: {str(e)[:50]}")
 
                 # Check for shutdown before continuing
                 if self.shutdown_event.is_set():
@@ -297,12 +304,19 @@ class WhatNowApp(Gtk.Application):
 
                 if gcal_connected:
                     try:
+                        # Show sync status
+                        GLib.idle_add(self._set_sync_status, "Syncing Calendar...")
+
                         gcal_sync = GoogleCalendarSync(self.db, gcal_ids)
                         if gcal_sync.sync():
                             # Update main window
                             GLib.idle_add(self._refresh_calendar_events)
+                            GLib.idle_add(self._set_sync_status, "Calendar synced")
+                        else:
+                            GLib.idle_add(self._set_sync_status, "Calendar sync failed")
                     except Exception as e:
                         logger.error(f"Google Calendar sync error: {e}")
+                        GLib.idle_add(self._set_sync_status, f"Calendar sync error: {str(e)[:50]}")
 
                 # Wait for next sync (interruptible)
                 if self.shutdown_event.wait(timeout=sync_interval * 60):
@@ -315,6 +329,18 @@ class WhatNowApp(Gtk.Application):
                     break
 
         logger.info("Sync loop ended")
+
+    def _set_sync_status(self, message: str):
+        """Set sync status message in main window.
+
+        Args:
+            message: Status message to display
+        """
+        if self.main_window:
+            self.main_window.set_status(message)
+            # Auto-clear after 5 seconds
+            GLib.timeout_add_seconds(5, self.main_window.clear_status)
+        return False
 
     def _refresh_github_tasks(self):
         """Refresh GitHub tasks in main window."""
