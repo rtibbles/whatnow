@@ -5,6 +5,8 @@ import logging
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any, List
 
+from ..utils.retry import retry_on_network_error
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -32,8 +34,9 @@ class GitHubSync:
             "Content-Type": "application/json"
         }
 
+    @retry_on_network_error(max_retries=4, initial_delay=2.0)
     def _execute_query(self, query: str, variables: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-        """Execute a GraphQL query.
+        """Execute a GraphQL query with automatic retry on network errors.
 
         Args:
             query: GraphQL query string
@@ -43,7 +46,7 @@ class GitHubSync:
             Response data dictionary
 
         Raises:
-            Exception: If query fails
+            Exception: If query fails after all retry attempts
         """
         payload = {"query": query}
         if variables:

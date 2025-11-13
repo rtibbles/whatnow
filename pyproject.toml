@@ -49,7 +49,7 @@ dev = [
 whatnow = "whatnow.__main__:main"
 
 [tool.setuptools]
-packages = ["whatnow", "whatnow.ui", "whatnow.sync"]
+packages = ["whatnow", "whatnow.ui", "whatnow.sync", "whatnow.utils"]
 
 [tool.black]
 line-length = 100

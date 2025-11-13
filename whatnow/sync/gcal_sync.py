@@ -13,6 +13,7 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
 from .gcal_credentials import GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, SCOPES, REDIRECT_URI
+from ..utils.retry import retry_on_network_error
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -88,6 +89,42 @@ class GoogleCalendarSync:
             logger.error(f"Google Calendar authentication failed: {e}")
             return False
 
+    @retry_on_network_error(max_retries=4, initial_delay=2.0)
+    def _fetch_events(self, calendar_id: str, sync_token: Optional[str] = None,
+                      time_min: Optional[str] = None, time_max: Optional[str] = None):
+        """Fetch events from Google Calendar API with retry logic.
+
+        Args:
+            calendar_id: Calendar identifier
+            sync_token: Optional sync token for incremental sync
+            time_min: Optional RFC3339 timestamp for start time
+            time_max: Optional RFC3339 timestamp for end time
+
+        Returns:
+            Events result dictionary
+
+        Raises:
+            HttpError: If API call fails after retries
+        """
+        if sync_token:
+            # Incremental sync
+            return self.service.events().list(
+                calendarId=calendar_id,
+                syncToken=sync_token,
+                maxResults=100,
+                singleEvents=True
+            ).execute()
+        else:
+            # Full sync
+            return self.service.events().list(
+                calendarId=calendar_id,
+                timeMin=time_min,
+                timeMax=time_max,
+                maxResults=100,
+                singleEvents=True,
+                orderBy='startTime'
+            ).execute()
+
     def sync(self, days_ahead: int = 7) -> bool:
         """Sync Google Calendar events.
 
@@ -127,12 +164,10 @@ class GoogleCalendarSync:
                     # Try incremental sync first if we have a token
                     if sync_token:
                         try:
-                            events_result = self.service.events().list(
-                                calendarId=calendar_id,
-                                syncToken=sync_token,
-                                maxResults=100,
-                                singleEvents=True
-                            ).execute()
+                            events_result = self._fetch_events(
+                                calendar_id=calendar_id,
+                                sync_token=sync_token
+                            )
                         except HttpError as e:
                             if e.resp.status == 410:
                                 # Sync token expired, do full sync
@@ -143,14 +178,11 @@ class GoogleCalendarSync:
 
                     # Full sync if no token or token expired
                     if not sync_token:
-                        events_result = self.service.events().list(
-                            calendarId=calendar_id,
-                            timeMin=time_min,
-                            timeMax=time_max,
-                            maxResults=100,
-                            singleEvents=True,
-                            orderBy='startTime'
-                        ).execute()
+                        events_result = self._fetch_events(
+                            calendar_id=calendar_id,
+                            time_min=time_min,
+                            time_max=time_max
+                        )
 
                     events = events_result.get('items', [])
 

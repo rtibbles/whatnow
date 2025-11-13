@@ -8,7 +8,7 @@ import json
 import logging
 
 from sqlalchemy import create_engine, select, and_
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.orm import Session, sessionmaker, scoped_session
 
 from .models import Base, Ping, GitHubTask, CalendarEvent, SyncMetadata, Config, WorkSession, LocalTODO
 
@@ -33,8 +33,16 @@ class Database:
             db_path = str(app_dir / 'whatnow.db')
 
         self.db_path = db_path
-        self.engine = create_engine(f"sqlite:///{db_path}", echo=False)
-        self.SessionLocal = sessionmaker(bind=self.engine)
+        self.engine = create_engine(
+            f"sqlite:///{db_path}",
+            echo=False,
+            # Enable thread-safe connection pooling for SQLite
+            connect_args={'check_same_thread': False},
+            pool_pre_ping=True  # Verify connections before use
+        )
+        # Use scoped_session for thread-local sessions
+        session_factory = sessionmaker(bind=self.engine)
+        self.SessionLocal = scoped_session(session_factory)
 
         # Run database migrations
         self._run_migrations()
@@ -249,6 +257,38 @@ class Database:
             True if working, False otherwise
         """
         return self.get_current_work_session() is not None
+
+    def toggle_work_session(self) -> tuple[bool, Optional[int]]:
+        """Atomically toggle work session state.
+
+        This method safely handles the check-then-act pattern within a single
+        database transaction, preventing race conditions.
+
+        Returns:
+            Tuple of (is_now_working, session_id_or_seconds)
+            - If starting work: (True, session_id)
+            - If ending work: (False, total_seconds)
+        """
+        with self.get_session() as session:
+            # Find active work session within the transaction
+            stmt = select(WorkSession).where(WorkSession.end_time == None).order_by(WorkSession.start_time.desc())
+            active_session = session.execute(stmt).scalars().first()
+
+            now = int(datetime.now().timestamp())
+
+            if active_session:
+                # End the active session
+                active_session.end_time = now
+                active_session.total_seconds = now - active_session.start_time
+                session.commit()
+                return (False, active_session.total_seconds)
+            else:
+                # Start a new session
+                work_session = WorkSession(start_time=now)
+                session.add(work_session)
+                session.commit()
+                session.refresh(work_session)
+                return (True, work_session.id)
 
     def get_work_sessions_by_date(self, date_timestamp: int) -> List[Dict[str, Any]]:
         """Get work sessions for a specific day.
@@ -814,5 +854,8 @@ class Database:
         return f"{ping.todo_type}: {ping.todo_id}" if ping.todo_type else ping.todo_id
 
     def close(self):
-        """Close database connection."""
+        """Close database connection and clean up thread-local sessions."""
+        # Remove thread-local sessions
+        self.SessionLocal.remove()
+        # Dispose of all connections in the pool
         self.engine.dispose()
