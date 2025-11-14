@@ -78,9 +78,12 @@ def run_migrations_online() -> None:
     In this scenario we need to create an Engine
     and associate a connection with the context.
     """
-    # Override the sqlalchemy.url in the alembic.ini
+    # Get configuration and set database URL
+    # If sqlalchemy.url is already set (e.g., programmatically), use it
+    # Otherwise, use the default from get_url()
     configuration = config.get_section(config.config_ini_section)
-    configuration["sqlalchemy.url"] = get_url()
+    if not configuration.get("sqlalchemy.url"):
+        configuration["sqlalchemy.url"] = get_url()
 
     connectable = engine_from_config(
         configuration,

@@ -142,15 +142,15 @@ class TestWorkSessionOperations:
 
         # Start and end a session
         db.start_work_session()
-        time.sleep(0.2)
+        time.sleep(1.1)
         db.end_work_session()
 
         # Get total seconds for today
         total = db.get_total_work_seconds_for_day(timestamp)
 
-        # Should be at least 0.2 seconds
-        assert total >= 0.2
-        assert total < 1.0  # But not more than 1 second
+        # Should be at least 1 second (timestamps are integers)
+        assert total >= 1
+        assert total < 3  # But not more than 3 seconds
 
     def test_multiple_sessions_same_day(self, db):
         """Test tracking multiple sessions in one day."""
@@ -158,16 +158,16 @@ class TestWorkSessionOperations:
 
         # Session 1
         db.start_work_session()
-        time.sleep(0.1)
+        time.sleep(1.1)  # Ensure measurable work time (timestamps are integers)
         db.end_work_session()
 
         # Session 2
         db.start_work_session()
-        time.sleep(0.1)
+        time.sleep(1.1)  # Ensure measurable work time (timestamps are integers)
         db.end_work_session()
 
         total = db.get_total_work_seconds_for_day(timestamp)
-        assert total >= 0.2  # At least both sessions combined
+        assert total >= 2  # At least both sessions combined (timestamps are integers)
 
 
 class TestLocalTODOOperations:

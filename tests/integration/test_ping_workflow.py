@@ -39,7 +39,7 @@ class TestCompletePingWorkflow:
         assert sample_local_todo["text"] in ping["activity"]
 
         # Step 5: End work session
-        time.sleep(0.1)
+        time.sleep(1.1)  # Ensure measurable work time (timestamps are integers)
         db.end_work_session()
         assert not db.is_working()
 
@@ -384,6 +384,7 @@ class TestEndToEndScenarios:
             current_time += 2700
 
         # End of day
+        time.sleep(1.1)  # Ensure measurable work time (timestamps are integers)
         db.end_work_session()
 
         # Analyze the day

@@ -29,7 +29,11 @@ REDIRECT_URI = "http://localhost:8080/"
 # GOOGLE_CLIENT_ID = "your-test-client-id"
 # GOOGLE_CLIENT_SECRET = "your-test-secret"
 try:
-    from .gcal_credentials_local import GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
+    from .gcal_credentials_local import GOOGLE_CLIENT_ID as _LOCAL_CLIENT_ID
+    from .gcal_credentials_local import GOOGLE_CLIENT_SECRET as _LOCAL_CLIENT_SECRET
+
+    GOOGLE_CLIENT_ID = _LOCAL_CLIENT_ID  # noqa: F811
+    GOOGLE_CLIENT_SECRET = _LOCAL_CLIENT_SECRET  # noqa: F811
 except ImportError:
     pass  # Use the embedded credentials above
 

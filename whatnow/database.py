@@ -111,6 +111,9 @@ class Database:
             # Create Alembic config
             alembic_cfg = Config(str(package_dir / "alembic.ini"))
 
+            # Set the script location to the absolute path of the alembic directory
+            alembic_cfg.set_main_option("script_location", str(package_dir / "alembic"))
+
             # Set the database URL
             alembic_cfg.set_main_option("sqlalchemy.url", f"sqlite:///{self.db_path}")
 
@@ -294,7 +297,7 @@ class Database:
             session.add(ping)
             session.commit()
             session.refresh(ping)
-            return ping.id
+            return int(ping.id)
 
     def get_pings(self, limit: int = 100, offset: int = 0) -> List[Dict[str, Any]]:
         """Get recent pings.
@@ -398,7 +401,7 @@ class Database:
             session.add(work_session)
             session.commit()
             session.refresh(work_session)
-            return work_session.id
+            return int(work_session.id)
 
     def end_work_session(self) -> Optional[int]:
         """End the current work session.
@@ -420,7 +423,7 @@ class Database:
                 result.end_time = now
                 result.total_seconds = now - result.start_time
                 session.commit()
-                return result.total_seconds
+                return int(result.total_seconds) if result.total_seconds is not None else None
 
             return None
 
@@ -537,7 +540,9 @@ class Database:
             Total seconds worked
         """
         sessions = self.get_work_sessions_by_date(date_timestamp)
-        total = sum(s.get("total_seconds", 0) for s in sessions if s.get("total_seconds"))
+        total: int = sum(
+            s.get("total_seconds", 0) for s in sessions if s.get("total_seconds") is not None
+        )
 
         # Add current session if active and started today
         current = self.get_current_work_session()
@@ -548,25 +553,40 @@ class Database:
                 now = int(datetime.now().timestamp())
                 total += now - current["start_time"]
 
-        return total
+        return int(total)
 
     # Local TODO operations
-    def add_local_todo(self, text: str, tags: Optional[List[str]] = None) -> int:
+    def add_local_todo(
+        self,
+        text: str,
+        tags: Optional[List[str]] = None,
+        is_active: bool = True,
+        created_at: Optional[int] = None,
+        completed_at: Optional[int] = None,
+    ) -> int:
         """Add a new local TODO.
 
         Args:
             text: TODO text
             tags: Optional list of tags
+            is_active: Whether the TODO is active (default: True)
+            created_at: Optional creation timestamp (default: current time)
+            completed_at: Optional completion timestamp
 
         Returns:
             ID of the TODO
         """
         with self.get_session() as session:
-            todo = LocalTODO(text=text, tags=tags or [])
+            todo_data = {"text": text, "tags": tags or [], "is_active": is_active}
+            if created_at is not None:
+                todo_data["created_at"] = created_at
+            if completed_at is not None:
+                todo_data["completed_at"] = completed_at
+            todo = LocalTODO(**todo_data)
             session.add(todo)
             session.commit()
             session.refresh(todo)
-            return todo.id
+            return int(todo.id)
 
     def get_local_todos(self, active_only: bool = True) -> List[Dict[str, Any]]:
         """Get local TODOs.
@@ -937,7 +957,7 @@ class Database:
                 metadata.last_sync = now
                 if success:
                     metadata.last_success = now
-                    metadata.error_message = None
+                    metadata.error_message = ""
                 else:
                     metadata.error_message = error_message
                 if sync_token is not None:
@@ -1048,11 +1068,11 @@ class Database:
             return token
 
         # Check if there's a plaintext token (backward compatibility)
-        config_value = self.get_config("github_token")
+        config_value: Optional[str] = self.get_config("github_token")
         if config_value and config_value != "_migrated_to_secure_storage":
             # Found plaintext token, migrate it
             self.set_github_token(config_value)
-            return config_value
+            return str(config_value)
 
         return None
 
@@ -1111,7 +1131,11 @@ class Database:
             return f"Local TODO (ID: {ping.todo_id})"
 
         # Unknown type
-        return f"{ping.todo_type}: {ping.todo_id}" if ping.todo_type else ping.todo_id
+        return (
+            f"{ping.todo_type}: {ping.todo_id}"
+            if ping.todo_type
+            else str(ping.todo_id or "Unknown")
+        )
 
     def close(self):
         """Close database connection and clean up thread-local sessions."""

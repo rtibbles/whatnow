@@ -33,7 +33,7 @@ class CredentialStore:
             db: Database instance for fallback encrypted storage
         """
         self.db = db
-        self._keyring_available = self._check_keyring()
+        self._keyring_available: bool = self._check_keyring()
         self._encryption_key: Optional[bytes] = None
 
         if not self._keyring_available and db:
@@ -58,7 +58,7 @@ class CredentialStore:
 
             # Try to set and get a test value
             keyring.set_password(SERVICE_NAME, test_key, test_value)
-            result = keyring.get_password(SERVICE_NAME, test_key)
+            result: Optional[str] = keyring.get_password(SERVICE_NAME, test_key)
 
             # Clean up test
             try:
@@ -66,7 +66,7 @@ class CredentialStore:
             except Exception:
                 pass
 
-            return result == test_value
+            return bool(result == test_value)
 
         except (KeyringError, NoKeyringError, Exception) as e:
             logger.debug(f"Keyring not available: {e}")
@@ -127,7 +127,7 @@ class CredentialStore:
 
         fernet = Fernet(self._encryption_key)
         encrypted = base64.b64decode(encrypted_value.encode())
-        return fernet.decrypt(encrypted).decode()
+        return str(fernet.decrypt(encrypted).decode())
 
     def set_credential(self, key: str, value: str):
         """Store a credential securely.
@@ -169,9 +169,9 @@ class CredentialStore:
         """
         if self._keyring_available:
             try:
-                value = keyring.get_password(SERVICE_NAME, key)
+                value: Optional[str] = keyring.get_password(SERVICE_NAME, key)
                 if value:
-                    return value
+                    return str(value)
             except Exception as e:
                 logger.debug(f"Failed to retrieve from keyring: {e}")
 
