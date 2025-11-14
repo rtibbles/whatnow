@@ -121,8 +121,6 @@ No manual token creation needed! WhatNow uses OAuth 2.0 for secure authenticatio
 
 WhatNow will sync your current iteration tasks every 30 minutes (configurable).
 
-**Note**: Personal Access Tokens (PAT) are still supported for backward compatibility but are deprecated by GitHub. OAuth is recommended.
-
 ## Optional: Google Calendar Integration
 
 ### Setup

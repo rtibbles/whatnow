@@ -124,7 +124,7 @@ class SettingsDialog(Gtk.Dialog):
         info_label.set_markup(
             "<b>GitHub Integration</b>\n\n"
             "Connect your GitHub account to sync with GitHub Projects.\n"
-            "OAuth is recommended over Personal Access Tokens (deprecated)."
+            "Uses OAuth 2.0 for secure authentication."
         )
         info_label.set_line_wrap(True)
         info_label.set_xalign(0)
@@ -136,7 +136,7 @@ class SettingsDialog(Gtk.Dialog):
         vbox.pack_start(self.github_status_label, False, False, 5)
 
         # Connect button (OAuth)
-        connect_button = Gtk.Button(label="Connect GitHub (OAuth)")
+        connect_button = Gtk.Button(label="Connect GitHub")
         connect_button.connect("clicked", self._on_connect_github_clicked)
         vbox.pack_start(connect_button, False, False, 0)
 
@@ -160,46 +160,6 @@ class SettingsDialog(Gtk.Dialog):
         self.github_project_spin.set_increments(1, 10)
         self.github_project_spin.set_value(1)
         vbox.pack_start(self.github_project_spin, False, False, 0)
-
-        # Separator
-        vbox.pack_start(Gtk.Separator(), False, False, 5)
-
-        # Legacy PAT section (collapsible)
-        legacy_expander = Gtk.Expander(label="Legacy: Personal Access Token (deprecated)")
-        legacy_vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
-        legacy_vbox.set_border_width(10)
-
-        legacy_info = Gtk.Label()
-        legacy_info.set_markup(
-            "<small>Personal Access Tokens are deprecated by GitHub.\n"
-            "Use OAuth authentication above instead.</small>"
-        )
-        legacy_info.set_line_wrap(True)
-        legacy_info.set_xalign(0)
-        legacy_vbox.pack_start(legacy_info, False, False, 0)
-
-        # Token entry
-        token_label = Gtk.Label(label="Personal Access Token:", xalign=0)
-        legacy_vbox.pack_start(token_label, False, False, 0)
-
-        self.github_token_entry = Gtk.Entry()
-        self.github_token_entry.set_placeholder_text("ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")
-        self.github_token_entry.set_visibility(False)
-        self.github_token_entry.set_input_purpose(Gtk.InputPurpose.PASSWORD)
-        legacy_vbox.pack_start(self.github_token_entry, False, False, 0)
-
-        # Show token checkbox
-        self.show_github_token = Gtk.CheckButton(label="Show token")
-        self.show_github_token.connect("toggled", self._on_show_github_token_toggled)
-        legacy_vbox.pack_start(self.show_github_token, False, False, 0)
-
-        # Test connection button
-        test_button = Gtk.Button(label="Test Connection")
-        test_button.connect("clicked", self._on_test_github_clicked)
-        legacy_vbox.pack_start(test_button, False, False, 0)
-
-        legacy_expander.add(legacy_vbox)
-        vbox.pack_start(legacy_expander, False, False, 0)
 
         # Add to notebook
         label = Gtk.Label(label="GitHub")
@@ -304,9 +264,6 @@ class SettingsDialog(Gtk.Dialog):
         self.sync_interval_spin.set_value(sync_interval)
 
         # GitHub settings
-        github_token = self.db.get_github_token() or ""
-        self.github_token_entry.set_text(github_token)
-
         github_org = self.db.get_config("github_org", "")
         self.github_org_entry.set_text(github_org)
 
@@ -371,11 +328,6 @@ class SettingsDialog(Gtk.Dialog):
         self.db.set_config("sync_interval", self.sync_interval_spin.get_value())
 
         # GitHub settings
-        token_text = self.github_token_entry.get_text().strip()
-        if token_text:
-            self.db.set_github_token(token_text)
-        else:
-            self.db.delete_github_token()
         self.db.set_config("github_org", self.github_org_entry.get_text().strip())
         self.db.set_config("github_project", int(self.github_project_spin.get_value()))
 
@@ -386,10 +338,6 @@ class SettingsDialog(Gtk.Dialog):
         gcal_ids_text = buffer.get_text(start_iter, end_iter, True)
         gcal_ids = [line.strip() for line in gcal_ids_text.split("\n") if line.strip()]
         self.db.set_config("gcal_calendar_ids", gcal_ids or ["primary"])
-
-    def _on_show_github_token_toggled(self, checkbox):
-        """Toggle GitHub token visibility."""
-        self.github_token_entry.set_visibility(checkbox.get_active())
 
     def _on_connect_github_clicked(self, button):
         """Handle GitHub OAuth connection button click."""
@@ -440,7 +388,7 @@ class SettingsDialog(Gtk.Dialog):
             """Run OAuth flow in background thread."""
             try:
                 # Create sync instance and trigger authentication
-                github_sync = GitHubSync(self.db, None, org, project)
+                github_sync = GitHubSync(self.db, org, project)
 
                 # This will trigger OAuth flow
                 if github_sync.authenticate_oauth():
@@ -559,83 +507,6 @@ class SettingsDialog(Gtk.Dialog):
                     for widget in page.get_children():
                         if isinstance(widget, Gtk.Button):
                             widget.set_sensitive(True)
-
-    def _on_test_github_clicked(self, button):
-        """Handle GitHub test connection button click."""
-        import threading
-
-        from gi.repository import GLib
-
-        from ..sync.github_sync import GitHubSync
-
-        # Get current settings
-        token = self.github_token_entry.get_text().strip()
-        org = self.github_org_entry.get_text().strip()
-        project = int(self.github_project_spin.get_value())
-
-        if not token or not org:
-            self.github_status_label.set_markup(
-                "<small><span color='red'>Please enter token and organization</span></small>"
-            )
-            return
-
-        # Disable button and show testing status
-        button.set_sensitive(False)
-        self.github_status_label.set_markup(
-            "<small><span color='blue'>⟳ Testing connection...</span></small>"
-        )
-
-        def test():
-            """Test GitHub connection in background thread."""
-            try:
-                github_sync = GitHubSync(self.db, token, org, project)
-                # Try to fetch current iteration (lightweight test)
-                iteration = github_sync._get_current_iteration()
-
-                # If we got here without error, connection works
-                GLib.idle_add(
-                    self._on_github_test_complete,
-                    True,
-                    f"Connected successfully! Current iteration: {iteration or 'None'}",
-                )
-            except Exception as e:
-                error_msg = str(e)
-                GLib.idle_add(self._on_github_test_complete, False, error_msg)
-
-        # Run in background thread
-        thread = threading.Thread(target=test, daemon=True)
-        thread.start()
-
-    def _on_github_test_complete(self, success: bool, message: str):
-        """Handle GitHub test completion (called on main thread).
-
-        Args:
-            success: Whether the test succeeded
-            message: Result message
-        """
-        # Find and re-enable the test button
-        for child in self.get_content_area().get_children():
-            if isinstance(child, Gtk.Notebook):
-                for page_num in range(child.get_n_pages()):
-                    page = child.get_nth_page(page_num)
-                    for widget in page.get_children():
-                        if (
-                            isinstance(widget, Gtk.Button)
-                            and widget.get_label() == "Test Connection"
-                        ):
-                            widget.set_sensitive(True)
-
-        # Update status label
-        if success:
-            self.github_status_label.set_markup(
-                f"<small><span color='green'>✓ {message[:80]}</span></small>"
-            )
-        else:
-            self.github_status_label.set_markup(
-                f"<small><span color='red'>✗ Connection failed: {message[:80]}</span></small>"
-            )
-
-        return False
 
     def _on_create_backup_clicked(self, button):
         """Handle create backup button click."""

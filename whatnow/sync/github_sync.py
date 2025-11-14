@@ -75,17 +75,15 @@ class GitHubSync:
 
     GRAPHQL_ENDPOINT = "https://api.github.com/graphql"
 
-    def __init__(self, db, token: Optional[str], org: str, project_number: int):
+    def __init__(self, db, org: str, project_number: int):
         """Initialize GitHub sync service.
 
         Args:
             db: Database instance
-            token: GitHub personal access token (optional if using OAuth)
             org: GitHub organization or user name
             project_number: Project number
         """
         self.db = db
-        self.token = token
         self.org = org
         self.project_number = project_number
         self.oauth_token: Optional[str] = None
@@ -94,16 +92,10 @@ class GitHubSync:
         data_dir = os.path.dirname(db.db_path)
         self.token_path = os.path.join(data_dir, "github_token.pickle")
 
-        # Try OAuth authentication first
+        # Load OAuth token
         if self._load_oauth_token():
             self.headers = {
                 "Authorization": f"Bearer {self.oauth_token}",
-                "Content-Type": "application/json",
-            }
-        elif token:
-            # Fall back to PAT if OAuth not available
-            self.headers = {
-                "Authorization": f"Bearer {token}",
                 "Content-Type": "application/json",
             }
         else:

@@ -292,16 +292,16 @@ class WhatNowApp(Gtk.Application):
                 logger.info("Running background sync")
 
                 # Sync GitHub if configured
-                github_token = self.db.get_github_token()
+                github_connected = self.db.get_config("github_connected", False)
                 github_org = self.db.get_config("github_org")
                 github_project = self.db.get_config("github_project")
 
-                if github_token and github_org and github_project:
+                if github_connected and github_org and github_project:
                     try:
                         # Show sync status
                         GLib.idle_add(self._set_sync_status, "Syncing GitHub...")
 
-                        github_sync = GitHubSync(self.db, github_token, github_org, github_project)
+                        github_sync = GitHubSync(self.db, github_org, github_project)
                         if github_sync.sync():
                             # Update main window
                             GLib.idle_add(self._refresh_github_tasks)

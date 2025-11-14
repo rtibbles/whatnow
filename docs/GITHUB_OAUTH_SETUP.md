@@ -140,18 +140,6 @@ This is a separate issue from OAuth:
 3. Check that you have access to the project in GitHub
 4. Look at the error message in the sync status for details
 
-## Legacy: Personal Access Tokens
-
-Personal Access Tokens (PAT) are still supported for backward compatibility, but are deprecated by GitHub.
-
-To use a PAT instead of OAuth:
-1. Go to GitHub Settings → Developer Settings → Personal Access Tokens
-2. Create a token with `repo` and `project` scopes
-3. In WhatNow settings, expand "Legacy: Personal Access Token"
-4. Paste your token
-
-**We recommend using OAuth instead** for better security and modern GitHub integration.
-
 ## Technical Details
 
 ### OAuth Flow Implementation
