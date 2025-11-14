@@ -4,7 +4,7 @@ import logging
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
-import requests
+import requests  # type: ignore[import-untyped]
 
 from ..utils.retry import retry_on_network_error
 
@@ -48,7 +48,7 @@ class GitHubSync:
         Raises:
             Exception: If query fails after all retry attempts
         """
-        payload = {"query": query}
+        payload: Dict[str, Any] = {"query": query}
         if variables:
             payload["variables"] = variables
 
@@ -59,12 +59,13 @@ class GitHubSync:
         if response.status_code != 200:
             raise Exception(f"GitHub API error: {response.status_code} - {response.text}")
 
-        data = response.json()
+        data: Dict[str, Any] = response.json()
 
         if "errors" in data:
             raise Exception(f"GraphQL errors: {data['errors']}")
 
-        return data.get("data", {})
+        result: Dict[str, Any] = data.get("data", {})
+        return result
 
     def _get_current_iteration(self) -> Optional[str]:
         """Get the current iteration title from the project.
@@ -124,7 +125,7 @@ class GitHubSync:
         iterations = field_data.get("configuration", {}).get("iterations", [])
         for iteration in iterations:
             if iteration.get("title", "").lower() == "@current":
-                return iteration["title"]
+                return str(iteration["title"])
 
             # Check if current date falls within iteration
             start_date_str = iteration.get("startDate")
@@ -136,7 +137,7 @@ class GitHubSync:
                     end_date = start_date + timedelta(days=duration)
 
                     if start_date <= now <= end_date:
-                        return iteration["title"]
+                        return str(iteration["title"])
                 except Exception:
                     pass
 

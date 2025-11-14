@@ -219,6 +219,8 @@ class WhatNowApp(Gtk.Application):
         Args:
             timestamp: Unix timestamp of the ping
         """
+        assert self.db is not None, "Database must be initialized"
+
         # Check if currently working
         if not self.db.is_working():
             logger.info("Skipping ping - not in active work session")
@@ -250,6 +252,7 @@ class WhatNowApp(Gtk.Application):
             ts: int, todo_id: str, todo_type: str, tags: list, notes: Optional[str]
         ):
             """Handle ping submission."""
+            assert self.db is not None  # Already checked in parent function
             try:
                 ping_id = self.db.add_ping(
                     timestamp=ts, todo_id=todo_id, todo_type=todo_type, tags=tags, notes=notes
@@ -400,6 +403,8 @@ class WhatNowApp(Gtk.Application):
         Args:
             is_working: Whether work session is starting
         """
+        assert self.db is not None, "Database must be initialized"
+
         if is_working:
             # Start work session
             session_id = self.db.start_work_session()

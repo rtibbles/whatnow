@@ -144,9 +144,9 @@ def retry_on_network_error(max_retries: int = 4, initial_delay: float = 2.0):
     """
     # Import here to avoid circular dependencies
     try:
-        import requests
+        import requests  # type: ignore[import-untyped]
 
-        network_exceptions = (
+        network_exceptions: tuple[type[Exception], ...] = (
             requests.exceptions.RequestException,
             ConnectionError,
             TimeoutError,

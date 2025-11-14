@@ -109,6 +109,8 @@ class GoogleCalendarSync:
         Raises:
             HttpError: If API call fails after retries
         """
+        assert self.service is not None, "Service must be authenticated first"
+
         if sync_token:
             # Incremental sync
             return (
@@ -204,11 +206,14 @@ class GoogleCalendarSync:
                         end = event.get("end", {})
 
                         # Parse start/end times (could be date or dateTime)
-                        start_time = self._parse_event_time(start)
-                        end_time = self._parse_event_time(end)
+                        start_ts: Optional[int] = self._parse_event_time(start)
+                        end_ts: Optional[int] = self._parse_event_time(end)
 
-                        if not start_time or not end_time:
+                        if not start_ts or not end_ts:
                             continue
+
+                        # At this point, both are guaranteed to be int (not None)
+                        assert start_ts is not None and end_ts is not None
 
                         # Extract attendees
                         attendees = []
@@ -221,8 +226,8 @@ class GoogleCalendarSync:
                             "id": f"{calendar_id}_{event['id']}",
                             "summary": event.get("summary", "Untitled Event"),
                             "description": event.get("description"),
-                            "start_time": start_time,
-                            "end_time": end_time,
+                            "start_time": start_ts,
+                            "end_time": end_ts,
                             "location": event.get("location"),
                             "calendar_id": calendar_id,
                             "attendees": attendees,

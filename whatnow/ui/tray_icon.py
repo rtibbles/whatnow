@@ -31,7 +31,7 @@ class TrayIcon:
         self.on_work_toggle = on_work_toggle
         self.on_quit = on_quit
         self.is_working = False
-        self.work_toggle_item = None
+        self.work_toggle_item: Optional[Gtk.CheckMenuItem] = None
 
         # Try to use AppIndicator3 first (better for modern desktops)
         self.indicator = None
@@ -68,6 +68,7 @@ class TrayIcon:
 
         # Work toggle item
         self.work_toggle_item = Gtk.CheckMenuItem(label="Working")
+        assert self.work_toggle_item is not None  # Always true, for mypy
         self.work_toggle_item.set_active(self.is_working)
         self.work_toggle_item.connect("toggled", self._on_work_toggle)
         menu.append(self.work_toggle_item)

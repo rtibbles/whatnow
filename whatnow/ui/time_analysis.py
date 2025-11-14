@@ -280,7 +280,7 @@ class TimeAnalysisWidget(Gtk.Box):
             return
 
         # Count pings per tag
-        tag_counts = defaultdict(int)
+        tag_counts: defaultdict[str, int] = defaultdict(int)
         for ping in pings:
             tags = ping.get("tags", [])
             if tags:
@@ -312,8 +312,8 @@ class TimeAnalysisWidget(Gtk.Box):
             return
 
         # Count pings per TODO
-        todo_counts = defaultdict(int)
-        todo_names = {}
+        todo_counts: defaultdict[str, int] = defaultdict(int)
+        todo_names: dict[str, str] = {}
 
         for ping in pings:
             todo_id = ping.get("todo_id")

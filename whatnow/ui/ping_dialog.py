@@ -78,7 +78,7 @@ class PingDialog(Gtk.Dialog):
         github_tasks: List[Dict[str, Any]],
         local_todos: List[Dict[str, Any]],
         db,
-        callback: Optional[Callable[[int, str, str, list, str], None]] = None,
+        callback: Optional[Callable[[int, str, str, list, Optional[str]], None]] = None,
     ):
         """Initialize the ping dialog.
 
@@ -102,10 +102,10 @@ class PingDialog(Gtk.Dialog):
         self.local_todos = local_todos
         self.db = db
         self.callback = callback
-        self.selected_todo_id = None
-        self.selected_todo_type = None
-        self.tag_checkboxes = {}
-        self.all_tags = set()
+        self.selected_todo_id: Optional[str] = None
+        self.selected_todo_type: Optional[str] = None
+        self.tag_checkboxes: dict[str, Gtk.CheckButton] = {}
+        self.all_tags: set[str] = set()
 
         # Set dialog size
         self.set_default_size(600, 500)
@@ -282,7 +282,7 @@ class PingDialog(Gtk.Dialog):
 
         dialog.destroy()
 
-    def get_response_data(self) -> Optional[Tuple[int, str, str, list, str]]:
+    def get_response_data(self) -> Optional[Tuple[int, str, str, list, Optional[str]]]:
         """Get the data from the dialog.
 
         Returns:
@@ -346,7 +346,7 @@ def show_ping_dialog(
     github_tasks: List[Dict[str, Any]],
     local_todos: List[Dict[str, Any]],
     db,
-    callback: Optional[Callable[[int, str, str, list, str], None]] = None,
+    callback: Optional[Callable[[int, str, str, list, Optional[str]], None]] = None,
 ) -> bool:
     """Show a ping dialog and return whether activity was logged.
 

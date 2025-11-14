@@ -214,10 +214,10 @@ def show_warning_dialog(parent: Optional[Gtk.Window], title: str, message: str) 
     )
     dialog.format_secondary_text(message)
 
-    response = dialog.run()
+    response: int = dialog.run()
     dialog.destroy()
 
-    return response == Gtk.ResponseType.OK
+    return bool(response == Gtk.ResponseType.OK)
 
 
 def show_info_dialog(parent: Optional[Gtk.Window], title: str, message: str):
