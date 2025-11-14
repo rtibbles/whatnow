@@ -4,7 +4,52 @@
 
 ### Installation Issues
 
-#### "No module named 'gi'"
+#### "No module named 'gi'" on Bazzite/Fedora Atomic
+
+**Problem**: PyGObject (gi) not available in atomic system or Homebrew installation incomplete.
+
+**Solution 1: Use Distrobox (Recommended)**:
+```bash
+# Create Fedora container
+distrobox create --name whatnow-dev --image fedora:39
+distrobox enter whatnow-dev
+
+# Inside container, install all dependencies
+sudo dnf install python3 python3-pip python3-gobject gtk3 \
+                 python3-cairo-devel pkg-config gcc gobject-introspection-devel
+
+# Install WhatNow
+pip install -e .
+```
+
+**Solution 2: Layer packages on host**:
+```bash
+# Layer GTK and build tools
+rpm-ostree install python3-gobject gtk3 python3-cairo-devel \
+                   pkg-config gcc gobject-introspection-devel
+
+# Reboot to apply changes
+systemctl reboot
+
+# After reboot
+pip install --user -e .
+```
+
+**Solution 3: Fix Homebrew GTK** (if you started with Homebrew):
+```bash
+# Ensure all dependencies are present
+brew install pygobject3 gtk+3 cairo pkg-config
+
+# Set environment variables for build
+export PKG_CONFIG_PATH="/home/linuxbrew/.linuxbrew/lib/pkgconfig:$PKG_CONFIG_PATH"
+export LD_LIBRARY_PATH="/home/linuxbrew/.linuxbrew/lib:$LD_LIBRARY_PATH"
+export GI_TYPELIB_PATH="/home/linuxbrew/.linuxbrew/lib/girepository-1.0:$GI_TYPELIB_PATH"
+
+# Try installing again
+pip install -e .
+```
+
+#### "No module named 'gi'" (Other Systems)
 
 **Problem**: PyGObject (gi) not installed or not found.
 
@@ -13,11 +58,28 @@
 # Ubuntu/Debian
 sudo apt-get install python3-gi python3-gi-cairo gir1.2-gtk-3.0
 
-# Fedora
+# Fedora (Traditional)
 sudo dnf install python3-gobject gtk3
 
 # macOS
 brew install pygobject3 gtk+3
+```
+
+#### "cairo/cairo.h: No such file or directory" on Bazzite
+
+**Problem**: Cairo development headers not found during PyGObject compilation.
+
+**Solution (Distrobox)**:
+```bash
+distrobox enter whatnow-dev
+sudo dnf install cairo-devel cairo-gobject-devel
+pip install --force-reinstall pycairo PyGObject
+```
+
+**Solution (Host system)**:
+```bash
+rpm-ostree install cairo-devel cairo-gobject-devel
+systemctl reboot
 ```
 
 #### "Namespace Gtk not available"
@@ -29,8 +91,16 @@ brew install pygobject3 gtk+3
 # Ubuntu/Debian
 sudo apt-get install gir1.2-gtk-3.0
 
-# Fedora
+# Fedora (Traditional)
 sudo dnf install gtk3
+
+# Fedora Atomic (via Distrobox)
+distrobox enter whatnow-dev
+sudo dnf install gtk3
+
+# Fedora Atomic (layer on host)
+rpm-ostree install gtk3
+systemctl reboot
 
 # macOS
 brew install gtk+3

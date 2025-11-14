@@ -9,9 +9,27 @@
 sudo apt-get install python3 python3-pip python3-gi python3-gi-cairo gir1.2-gtk-3.0
 ```
 
-**Fedora:**
+**Fedora (Traditional):**
 ```bash
-sudo dnf install python3 python3-pip python3-gobject gtk3
+sudo dnf install python3 python3-pip python3-gobject gtk3 python3-cairo-devel pkg-config gcc
+```
+
+**Fedora Atomic (Bazzite/Silverblue/Kinoite):**
+
+*Option 1: Using Distrobox (Recommended for development):*
+```bash
+# Create development container
+distrobox create --name whatnow-dev --image fedora:39
+distrobox enter whatnow-dev
+
+# Inside container
+sudo dnf install python3 python3-pip python3-gobject gtk3 python3-cairo-devel pkg-config gcc
+```
+
+*Option 2: Layer packages on host (requires reboot):*
+```bash
+rpm-ostree install python3-gobject gtk3 python3-cairo-devel pkg-config gcc
+systemctl reboot
 ```
 
 **macOS:**

@@ -71,10 +71,46 @@ pip install -e ".[dev]"
 sudo apt-get install python3-gi python3-gi-cairo gir1.2-gtk-3.0
 ```
 
-### System Dependencies (Fedora)
+### System Dependencies (Fedora - Traditional)
 
 ```bash
-sudo dnf install python3-gobject gtk3
+sudo dnf install python3-gobject gtk3 python3-cairo-devel pkg-config gcc
+```
+
+### System Dependencies (Fedora Atomic - Bazzite/Silverblue/Kinoite)
+
+**Option 1: Using Toolbox/Distrobox (Recommended)**
+
+```bash
+# Create a development container
+distrobox create --name whatnow-dev --image fedora:39
+
+# Enter the container
+distrobox enter whatnow-dev
+
+# Inside the container, install dependencies
+sudo dnf install python3 python3-pip python3-gobject gtk3 python3-cairo-devel pkg-config gcc
+
+# Clone and install WhatNow
+git clone https://github.com/yourusername/whatnow.git
+cd whatnow
+pip install -e ".[dev]"
+
+# Run (exports to host automatically)
+whatnow
+```
+
+**Option 2: Layer packages on host (requires reboot)**
+
+```bash
+# Layer GTK and Python packages
+rpm-ostree install python3-gobject gtk3 python3-cairo-devel pkg-config gcc
+
+# Reboot to apply
+systemctl reboot
+
+# After reboot, install WhatNow with pip
+pip install --user -e .
 ```
 
 ### System Dependencies (macOS)
