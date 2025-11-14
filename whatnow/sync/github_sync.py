@@ -1,15 +1,73 @@
 """GitHub Projects sync service using GraphQL API."""
 
+import http.server
+import json
 import logging
+import os
+import pickle
+import secrets
+import socketserver
+import threading
+import urllib.parse
+import webbrowser
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
 import requests  # type: ignore[import-untyped]
 
 from ..utils.retry import retry_on_network_error
+from .github_credentials import (
+    AUTHORIZATION_BASE_URL,
+    GITHUB_CLIENT_ID,
+    GITHUB_CLIENT_SECRET,
+    REDIRECT_URI,
+    SCOPES,
+    TOKEN_URL,
+)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+
+class OAuthCallbackHandler(http.server.BaseHTTPRequestHandler):
+    """HTTP handler for OAuth callback."""
+
+    def do_GET(self):
+        """Handle GET request to callback URL."""
+        # Parse the authorization code from the callback
+        parsed_path = urllib.parse.urlparse(self.path)
+        params = urllib.parse.parse_qs(parsed_path.query)
+
+        if "code" in params:
+            # Store the authorization code
+            self.server.auth_code = params["code"][0]  # type: ignore
+            self.server.auth_state = params.get("state", [None])[0]  # type: ignore
+
+            # Send success response
+            self.send_response(200)
+            self.send_header("Content-type", "text/html")
+            self.end_headers()
+            self.wfile.write(
+                b"<html><body><h1>Authentication successful!</h1>"
+                b"<p>You can close this window and return to WhatNow.</p></body></html>"
+            )
+        else:
+            # Error in authorization
+            error = params.get("error", ["unknown"])[0]
+            error_description = params.get("error_description", [""])[0]
+
+            self.send_response(400)
+            self.send_header("Content-type", "text/html")
+            self.end_headers()
+            self.wfile.write(
+                f"<html><body><h1>Authentication failed</h1>"
+                f"<p>Error: {error}</p>"
+                f"<p>{error_description}</p></body></html>".encode()
+            )
+
+    def log_message(self, format, *args):
+        """Suppress HTTP server logs."""
+        pass
 
 
 class GitHubSync:
@@ -17,12 +75,12 @@ class GitHubSync:
 
     GRAPHQL_ENDPOINT = "https://api.github.com/graphql"
 
-    def __init__(self, db, token: str, org: str, project_number: int):
+    def __init__(self, db, token: Optional[str], org: str, project_number: int):
         """Initialize GitHub sync service.
 
         Args:
             db: Database instance
-            token: GitHub personal access token
+            token: GitHub personal access token (optional if using OAuth)
             org: GitHub organization or user name
             project_number: Project number
         """
@@ -30,7 +88,159 @@ class GitHubSync:
         self.token = token
         self.org = org
         self.project_number = project_number
-        self.headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+        self.oauth_token: Optional[str] = None
+
+        # Token file path (stored next to database)
+        data_dir = os.path.dirname(db.db_path)
+        self.token_path = os.path.join(data_dir, "github_token.pickle")
+
+        # Try OAuth authentication first
+        if self._load_oauth_token():
+            self.headers = {
+                "Authorization": f"Bearer {self.oauth_token}",
+                "Content-Type": "application/json",
+            }
+        elif token:
+            # Fall back to PAT if OAuth not available
+            self.headers = {
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json",
+            }
+        else:
+            self.headers = {"Content-Type": "application/json"}
+
+    def _load_oauth_token(self) -> bool:
+        """Load OAuth token from disk.
+
+        Returns:
+            True if token loaded successfully, False otherwise
+        """
+        if os.path.exists(self.token_path):
+            try:
+                with open(self.token_path, "rb") as token_file:
+                    token_data = pickle.load(token_file)
+                    self.oauth_token = token_data.get("access_token")
+                    logger.info("Loaded GitHub OAuth token from disk")
+                    return True
+            except Exception as e:
+                logger.error(f"Failed to load OAuth token: {e}")
+        return False
+
+    def _save_oauth_token(self, token_data: Dict[str, Any]):
+        """Save OAuth token to disk.
+
+        Args:
+            token_data: Token data from OAuth response
+        """
+        try:
+            with open(self.token_path, "wb") as token_file:
+                pickle.dump(token_data, token_file)
+            logger.info("Saved GitHub OAuth token to disk")
+        except Exception as e:
+            logger.error(f"Failed to save OAuth token: {e}")
+
+    def authenticate_oauth(self) -> bool:
+        """Perform OAuth authentication flow.
+
+        Returns:
+            True if authentication successful, False otherwise
+        """
+        try:
+            # Check if already authenticated
+            if self._load_oauth_token():
+                logger.info("Already authenticated with GitHub OAuth")
+                return True
+
+            logger.info("Starting OAuth flow for GitHub")
+
+            # Generate random state for CSRF protection
+            state = secrets.token_urlsafe(32)
+
+            # Build authorization URL
+            params = {
+                "client_id": GITHUB_CLIENT_ID,
+                "redirect_uri": REDIRECT_URI,
+                "scope": " ".join(SCOPES),
+                "state": state,
+            }
+            auth_url = f"{AUTHORIZATION_BASE_URL}?{urllib.parse.urlencode(params)}"
+
+            # Start local server to receive callback
+            port = 8080
+            server = socketserver.TCPServer(("localhost", port), OAuthCallbackHandler)
+            server.auth_code = None  # type: ignore
+            server.auth_state = None  # type: ignore
+
+            # Run server in background thread
+            server_thread = threading.Thread(target=server.handle_request, daemon=True)
+            server_thread.start()
+
+            # Open browser for authorization
+            logger.info(f"Opening browser for GitHub authorization: {auth_url}")
+            webbrowser.open(auth_url)
+
+            # Wait for callback (timeout after 5 minutes)
+            server_thread.join(timeout=300)
+
+            # Check if we got the authorization code
+            if not hasattr(server, "auth_code") or server.auth_code is None:  # type: ignore
+                logger.error("Did not receive authorization code from GitHub")
+                return False
+
+            # Verify state matches
+            if server.auth_state != state:  # type: ignore
+                logger.error("State mismatch in OAuth callback - possible CSRF attack")
+                return False
+
+            auth_code: str = server.auth_code  # type: ignore
+
+            # Exchange authorization code for access token
+            token_params = {
+                "client_id": GITHUB_CLIENT_ID,
+                "client_secret": GITHUB_CLIENT_SECRET,
+                "code": auth_code,
+                "redirect_uri": REDIRECT_URI,
+            }
+
+            response = requests.post(
+                TOKEN_URL,
+                data=token_params,
+                headers={"Accept": "application/json"},
+                timeout=30,
+            )
+
+            if response.status_code != 200:
+                logger.error(f"Token exchange failed: {response.status_code} - {response.text}")
+                return False
+
+            token_data = response.json()
+
+            if "error" in token_data:
+                logger.error(
+                    f"OAuth error: {token_data.get('error_description', token_data['error'])}"
+                )
+                return False
+
+            if "access_token" not in token_data:
+                logger.error("No access token in response")
+                return False
+
+            # Save token
+            self.oauth_token = token_data["access_token"]
+            self._save_oauth_token(token_data)
+
+            # Update headers
+            self.headers = {
+                "Authorization": f"Bearer {self.oauth_token}",
+                "Content-Type": "application/json",
+            }
+
+            logger.info("GitHub OAuth authentication successful")
+            return True
+
+        except Exception as e:
+            logger.error(f"GitHub OAuth authentication failed: {e}")
+            return False
 
     @retry_on_network_error(max_retries=4, initial_delay=2.0)
     def _execute_query(

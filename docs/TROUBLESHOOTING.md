@@ -122,6 +122,70 @@ brew install pygobject3 gtk+3
 
 ### Application Issues
 
+#### Tiny mouse cursor on HiDPI/4K displays
+
+**Problem**: App looks fine but mouse cursor is extremely small on high-resolution displays
+
+**Cause**: System cursor theme not scaling for HiDPI displays
+
+**Solution (Temporary - for testing)**:
+```bash
+# Set cursor size before running
+export XCURSOR_SIZE=48  # Default is 24, try 48, 64, or 96
+whatnow
+```
+
+**Solution (Permanent - Bazzite/Fedora)**:
+```bash
+# In your host system (not distrobox), set cursor size
+gsettings set org.gnome.desktop.interface cursor-size 48
+
+# For Wayland, also set the environment variable in your shell profile
+echo 'export XCURSOR_SIZE=48' >> ~/.bashrc
+```
+
+**Solution (Permanent - distrobox)**:
+
+If running in distrobox, create a wrapper script:
+```bash
+# In distrobox container
+cat > ~/.local/bin/whatnow-scaled << 'EOF'
+#!/bin/bash
+export XCURSOR_SIZE=48
+export GDK_SCALE=2  # Optional: if UI elements are also too small
+exec whatnow "$@"
+EOF
+
+chmod +x ~/.local/bin/whatnow-scaled
+
+# Run with scaling
+whatnow-scaled
+```
+
+**Alternative cursor themes with better HiDPI support**:
+- Install `breeze-cursor-theme` or `adwaita-icon-theme` for better HiDPI scaling
+- On Bazzite: `rpm-ostree install adwaita-icon-theme` (requires reboot)
+
+#### UI elements too small on HiDPI displays
+
+**Problem**: Everything in the app is too small on 4K/HiDPI display
+
+**Solution**:
+```bash
+# Set GTK scale factor (2x for 4K, 3x for 5K)
+export GDK_SCALE=2
+whatnow
+
+# Or set fractional scaling
+export GDK_DPI_SCALE=1.5
+whatnow
+```
+
+To make permanent in distrobox, add to `~/.bashrc`:
+```bash
+echo 'export GDK_SCALE=2' >> ~/.bashrc
+```
+
 #### Pings not appearing
 
 **Problem**: Poisson scheduler not running or interval too long.

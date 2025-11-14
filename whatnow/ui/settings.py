@@ -122,29 +122,23 @@ class SettingsDialog(Gtk.Dialog):
         # Instructions
         info_label = Gtk.Label()
         info_label.set_markup(
-            "<b>GitHub Personal Access Token</b>\n\n"
-            "1. Go to GitHub Settings → Developer Settings → Personal Access Tokens\n"
-            "2. Create a token with <tt>repo</tt> and <tt>project</tt> scopes\n"
-            "3. Paste the token below"
+            "<b>GitHub Integration</b>\n\n"
+            "Connect your GitHub account to sync with GitHub Projects.\n"
+            "OAuth is recommended over Personal Access Tokens (deprecated)."
         )
         info_label.set_line_wrap(True)
         info_label.set_xalign(0)
         vbox.pack_start(info_label, False, False, 0)
 
-        # Token entry
-        token_label = Gtk.Label(label="Personal Access Token:", xalign=0)
-        vbox.pack_start(token_label, False, False, 0)
+        # Connection status
+        self.github_status_label = Gtk.Label()
+        self.github_status_label.set_xalign(0)
+        vbox.pack_start(self.github_status_label, False, False, 5)
 
-        self.github_token_entry = Gtk.Entry()
-        self.github_token_entry.set_placeholder_text("ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")
-        self.github_token_entry.set_visibility(False)
-        self.github_token_entry.set_input_purpose(Gtk.InputPurpose.PASSWORD)
-        vbox.pack_start(self.github_token_entry, False, False, 0)
-
-        # Show token checkbox
-        self.show_github_token = Gtk.CheckButton(label="Show token")
-        self.show_github_token.connect("toggled", self._on_show_github_token_toggled)
-        vbox.pack_start(self.show_github_token, False, False, 0)
+        # Connect button (OAuth)
+        connect_button = Gtk.Button(label="Connect GitHub (OAuth)")
+        connect_button.connect("clicked", self._on_connect_github_clicked)
+        vbox.pack_start(connect_button, False, False, 0)
 
         # Separator
         vbox.pack_start(Gtk.Separator(), False, False, 5)
@@ -170,15 +164,42 @@ class SettingsDialog(Gtk.Dialog):
         # Separator
         vbox.pack_start(Gtk.Separator(), False, False, 5)
 
+        # Legacy PAT section (collapsible)
+        legacy_expander = Gtk.Expander(label="Legacy: Personal Access Token (deprecated)")
+        legacy_vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
+        legacy_vbox.set_border_width(10)
+
+        legacy_info = Gtk.Label()
+        legacy_info.set_markup(
+            "<small>Personal Access Tokens are deprecated by GitHub.\n"
+            "Use OAuth authentication above instead.</small>"
+        )
+        legacy_info.set_line_wrap(True)
+        legacy_info.set_xalign(0)
+        legacy_vbox.pack_start(legacy_info, False, False, 0)
+
+        # Token entry
+        token_label = Gtk.Label(label="Personal Access Token:", xalign=0)
+        legacy_vbox.pack_start(token_label, False, False, 0)
+
+        self.github_token_entry = Gtk.Entry()
+        self.github_token_entry.set_placeholder_text("ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")
+        self.github_token_entry.set_visibility(False)
+        self.github_token_entry.set_input_purpose(Gtk.InputPurpose.PASSWORD)
+        legacy_vbox.pack_start(self.github_token_entry, False, False, 0)
+
+        # Show token checkbox
+        self.show_github_token = Gtk.CheckButton(label="Show token")
+        self.show_github_token.connect("toggled", self._on_show_github_token_toggled)
+        legacy_vbox.pack_start(self.show_github_token, False, False, 0)
+
         # Test connection button
         test_button = Gtk.Button(label="Test Connection")
         test_button.connect("clicked", self._on_test_github_clicked)
-        vbox.pack_start(test_button, False, False, 0)
+        legacy_vbox.pack_start(test_button, False, False, 0)
 
-        # Sync status
-        self.github_status_label = Gtk.Label()
-        self.github_status_label.set_xalign(0)
-        vbox.pack_start(self.github_status_label, False, False, 5)
+        legacy_expander.add(legacy_vbox)
+        vbox.pack_start(legacy_expander, False, False, 0)
 
         # Add to notebook
         label = Gtk.Label(label="GitHub")
@@ -293,25 +314,27 @@ class SettingsDialog(Gtk.Dialog):
         self.github_project_spin.set_value(github_project)
 
         # GitHub sync status
+        github_connected = self.db.get_config("github_connected", False)
         github_sync_meta = self.db.get_sync_metadata("github")
-        if github_sync_meta:
-            from datetime import datetime
 
-            last_sync = github_sync_meta.get("last_sync")
-            if last_sync:
-                last_sync_dt = datetime.fromtimestamp(last_sync)
-                last_sync_str = last_sync_dt.strftime("%Y-%m-%d %H:%M:%S")
-                success = github_sync_meta.get("success", False)
-                if success:
-                    self.github_status_label.set_markup(
-                        f"<small>Last synced: {last_sync_str}</small>"
-                    )
-                else:
-                    error_msg = github_sync_meta.get("error_message", "Unknown error")
-                    self.github_status_label.set_markup(
-                        f"<small><span color='red'>Last sync failed: {error_msg[:50]}</span>\n"
-                        f"Time: {last_sync_str}</small>"
-                    )
+        if github_connected:
+            status_text = "<span color='green'>✓ Connected</span>"
+            if github_sync_meta:
+                from datetime import datetime
+
+                last_sync = github_sync_meta.get("last_sync")
+                if last_sync:
+                    last_sync_dt = datetime.fromtimestamp(last_sync)
+                    last_sync_str = last_sync_dt.strftime("%Y-%m-%d %H:%M:%S")
+                    success = github_sync_meta.get("success", False)
+                    if success:
+                        status_text += f"\n<small>Last synced: {last_sync_str}</small>"
+                    else:
+                        error_msg = github_sync_meta.get("error_message", "Unknown error")
+                        status_text += f"\n<small><span color='red'>Last sync failed: {error_msg[:50]}</span></small>"
+            self.github_status_label.set_markup(status_text)
+        else:
+            self.github_status_label.set_markup("<span color='gray'>Not connected</span>")
 
         # Google Calendar settings
         gcal_connected = self.db.get_config("gcal_connected", False)
@@ -367,6 +390,99 @@ class SettingsDialog(Gtk.Dialog):
     def _on_show_github_token_toggled(self, checkbox):
         """Toggle GitHub token visibility."""
         self.github_token_entry.set_visibility(checkbox.get_active())
+
+    def _on_connect_github_clicked(self, button):
+        """Handle GitHub OAuth connection button click."""
+        import threading
+
+        from ..sync.github_credentials import validate_credentials
+        from ..sync.github_sync import GitHubSync
+
+        # Validate credentials first
+        creds_valid, error_msg = validate_credentials()
+        if not creds_valid:
+            # Show error dialog
+            dialog = Gtk.MessageDialog(
+                parent=self,
+                modal=True,
+                destroy_with_parent=True,
+                message_type=Gtk.MessageType.ERROR,
+                buttons=Gtk.ButtonsType.OK,
+                text="OAuth Credentials Not Configured",
+            )
+            dialog.format_secondary_text(error_msg)
+            dialog.run()
+            dialog.destroy()
+            return
+
+        # Get org and project number
+        org = self.github_org_entry.get_text().strip()
+        project = int(self.github_project_spin.get_value())
+
+        if not org:
+            dialog = Gtk.MessageDialog(
+                parent=self,
+                modal=True,
+                destroy_with_parent=True,
+                message_type=Gtk.MessageType.WARNING,
+                buttons=Gtk.ButtonsType.OK,
+                text="Organization/User Required",
+            )
+            dialog.format_secondary_text("Please enter a GitHub organization or username first.")
+            dialog.run()
+            dialog.destroy()
+            return
+
+        button.set_sensitive(False)
+        self.github_status_label.set_markup("<span color='blue'>Connecting...</span>")
+
+        def connect():
+            """Run OAuth flow in background thread."""
+            try:
+                # Create sync instance and trigger authentication
+                github_sync = GitHubSync(self.db, None, org, project)
+
+                # This will trigger OAuth flow
+                if github_sync.authenticate_oauth():
+                    # Mark as connected
+                    self.db.set_config("github_connected", True)
+
+                    # Update UI on main thread
+                    from gi.repository import GLib
+
+                    GLib.idle_add(self._on_github_connected, True)
+                else:
+                    from gi.repository import GLib
+
+                    GLib.idle_add(self._on_github_connected, False)
+
+            except Exception as e:
+                import logging
+
+                logging.error(f"GitHub connection error: {e}")
+                from gi.repository import GLib
+
+                GLib.idle_add(self._on_github_connected, False)
+
+        # Run in background thread
+        thread = threading.Thread(target=connect, daemon=True)
+        thread.start()
+
+    def _on_github_connected(self, success: bool):
+        """Handle GitHub connection result (called on main thread)."""
+        if success:
+            self.github_status_label.set_markup("<span color='green'>✓ Connected</span>")
+        else:
+            self.github_status_label.set_markup("<span color='red'>✗ Connection failed</span>")
+
+        # Re-enable button
+        for child in self.get_content_area().get_children():
+            if isinstance(child, Gtk.Notebook):
+                for page_num in range(child.get_n_pages()):
+                    page = child.get_nth_page(page_num)
+                    for widget in page.get_children():
+                        if isinstance(widget, Gtk.Button) and "GitHub" in widget.get_label():
+                            widget.set_sensitive(True)
 
     def _on_connect_calendar_clicked(self, button):
         """Handle Google Calendar connection button click."""
