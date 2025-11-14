@@ -129,7 +129,9 @@ class TestCredentialStore:
         """Test fallback to encrypted storage if keyring operations fail."""
         # Mock keyring to appear available but fail on operations
         mock_keyring = MagicMock()
-        mock_keyring.get_keyring.return_value = Mock(__class__.__name__='MockBackend')
+        mock_backend = Mock()
+        mock_backend.__class__.__name__ = 'MockBackend'
+        mock_keyring.get_keyring.return_value = mock_backend
         mock_keyring.set_password.side_effect = Exception("Keyring error")
         mock_keyring.get_password.side_effect = Exception("Keyring error")
 

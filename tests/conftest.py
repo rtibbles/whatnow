@@ -68,7 +68,11 @@ def mock_keyring(monkeypatch):
     mock_keyring.get_password = Mock(side_effect=get_password)
     mock_keyring.set_password = Mock(side_effect=set_password)
     mock_keyring.delete_password = Mock(side_effect=delete_password)
-    mock_keyring.get_keyring = Mock(return_value=Mock(__class__.__name__='MockBackend'))
+
+    # Create a mock backend with a name
+    mock_backend = Mock()
+    mock_backend.__class__.__name__ = 'MockBackend'
+    mock_keyring.get_keyring = Mock(return_value=mock_backend)
 
     monkeypatch.setattr('keyring.get_password', mock_keyring.get_password)
     monkeypatch.setattr('keyring.set_password', mock_keyring.set_password)
