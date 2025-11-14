@@ -1,7 +1,8 @@
 """Unit tests for time analysis calculations."""
 
-import pytest
 from datetime import datetime, timedelta
+
+import pytest
 
 
 class TestTagTimeFormula:
@@ -31,13 +32,7 @@ class TestTagTimeFormula:
         total_pings = 100
         total_hours = 8.0
 
-        categories = {
-            'coding': 40,
-            'meetings': 20,
-            'email': 15,
-            'break': 10,
-            'planning': 15
-        }
+        categories = {"coding": 40, "meetings": 20, "email": 15, "break": 10, "planning": 15}
 
         # Calculate time for each
         times = {}
@@ -45,9 +40,9 @@ class TestTagTimeFormula:
             times[category] = (pings / total_pings) * total_hours
 
         # Verify calculations
-        assert times['coding'] == pytest.approx(3.2)
-        assert times['meetings'] == pytest.approx(1.6)
-        assert times['email'] == pytest.approx(1.2)
+        assert times["coding"] == pytest.approx(3.2)
+        assert times["meetings"] == pytest.approx(1.6)
+        assert times["email"] == pytest.approx(1.2)
 
         # Sum should equal total (accounting for rounding)
         assert sum(times.values()) == pytest.approx(total_hours)
@@ -92,17 +87,9 @@ class TestTimeAggregation:
     def test_daily_aggregation(self):
         """Test aggregating pings by day."""
         # Simulate pings across multiple days
-        pings_by_day = {
-            '2025-11-10': 32,
-            '2025-11-11': 28,
-            '2025-11-12': 35
-        }
+        pings_by_day = {"2025-11-10": 32, "2025-11-11": 28, "2025-11-12": 35}
 
-        work_hours_by_day = {
-            '2025-11-10': 8.0,
-            '2025-11-11': 7.0,
-            '2025-11-12': 8.5
-        }
+        work_hours_by_day = {"2025-11-10": 8.0, "2025-11-11": 7.0, "2025-11-12": 8.5}
 
         # Calculate average pings per day
         avg_pings = sum(pings_by_day.values()) / len(pings_by_day)
@@ -130,25 +117,18 @@ class TestTimeAggregation:
         total_pings = 50
         total_hours = 8.0
 
-        tag_pings = {
-            'work': 35,
-            'break': 10,
-            'admin': 5
-        }
+        tag_pings = {"work": 35, "break": 10, "admin": 5}
 
         distributions = {}
         for tag, pings in tag_pings.items():
             percentage = (pings / total_pings) * 100
             hours = (pings / total_pings) * total_hours
-            distributions[tag] = {
-                'percentage': percentage,
-                'hours': hours
-            }
+            distributions[tag] = {"percentage": percentage, "hours": hours}
 
-        assert distributions['work']['percentage'] == pytest.approx(70.0)
-        assert distributions['work']['hours'] == pytest.approx(5.6)
-        assert distributions['break']['percentage'] == pytest.approx(20.0)
-        assert distributions['admin']['hours'] == pytest.approx(0.8)
+        assert distributions["work"]["percentage"] == pytest.approx(70.0)
+        assert distributions["work"]["hours"] == pytest.approx(5.6)
+        assert distributions["break"]["percentage"] == pytest.approx(20.0)
+        assert distributions["admin"]["hours"] == pytest.approx(0.8)
 
 
 class TestStatisticalAccuracy:
@@ -162,6 +142,7 @@ class TestStatisticalAccuracy:
 
         # Standard deviation = sqrt(λ)
         import math
+
         std_dev = math.sqrt(expected_pings_per_day)
 
         assert std_dev == pytest.approx(5.66, abs=0.01)

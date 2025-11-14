@@ -208,4 +208,3 @@ If you're distributing WhatNow to other users:
 - Check [TROUBLESHOOTING.md](TROUBLESHOOTING.md) for common issues
 - Open an issue on GitHub
 - Review Google's OAuth documentation
-

@@ -1,19 +1,23 @@
 """System tray icon for background operation."""
 
 import gi
-gi.require_version('Gtk', '3.0')
-from gi.repository import Gtk, GLib
-from typing import Optional, Callable
+
+gi.require_version("Gtk", "3.0")
+from typing import Callable, Optional
+
+from gi.repository import GLib, Gtk
 
 
 class TrayIcon:
     """System tray icon for WhatNow."""
 
-    def __init__(self,
-                 on_show: Optional[Callable] = None,
-                 on_settings: Optional[Callable] = None,
-                 on_work_toggle: Optional[Callable[[bool], None]] = None,
-                 on_quit: Optional[Callable] = None):
+    def __init__(
+        self,
+        on_show: Optional[Callable] = None,
+        on_settings: Optional[Callable] = None,
+        on_work_toggle: Optional[Callable[[bool], None]] = None,
+        on_quit: Optional[Callable] = None,
+    ):
         """Initialize the tray icon.
 
         Args:
@@ -34,13 +38,13 @@ class TrayIcon:
         self.status_icon = None
 
         try:
-            gi.require_version('AppIndicator3', '0.1')
+            gi.require_version("AppIndicator3", "0.1")
             from gi.repository import AppIndicator3
 
             self.indicator = AppIndicator3.Indicator.new(
                 "whatnow",
                 "appointment-soon",  # Stock icon name
-                AppIndicator3.IndicatorCategory.APPLICATION_STATUS
+                AppIndicator3.IndicatorCategory.APPLICATION_STATUS,
             )
             self.indicator.set_status(AppIndicator3.IndicatorStatus.ACTIVE)
             self.indicator.set_title("WhatNow")
@@ -187,6 +191,7 @@ class TrayIcon:
         """Show the tray icon."""
         if self.indicator:
             from gi.repository import AppIndicator3
+
             self.indicator.set_status(AppIndicator3.IndicatorStatus.ACTIVE)
         elif self.status_icon:
             self.status_icon.set_visible(True)
@@ -195,6 +200,7 @@ class TrayIcon:
         """Hide the tray icon."""
         if self.indicator:
             from gi.repository import AppIndicator3
+
             self.indicator.set_status(AppIndicator3.IndicatorStatus.PASSIVE)
         elif self.status_icon:
             self.status_icon.set_visible(False)

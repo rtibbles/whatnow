@@ -1,17 +1,16 @@
 """Main GTK application window."""
 
 import gi
-gi.require_version('Gtk', '3.0')
-from gi.repository import Gtk, GLib, Pango
-from datetime import datetime
-from typing import Optional, List, Dict, Any, Callable
 
-from .todo_management import TodoManagementWidget
+gi.require_version("Gtk", "3.0")
+from datetime import datetime
+from typing import Any, Callable, Dict, List, Optional
+
+from gi.repository import GLib, Gtk, Pango
+
+from ..constants import DEFAULT_PAGE_SIZE, STATUS_MESSAGE_SUCCESS_CLEAR_SECONDS
 from .time_analysis import TimeAnalysisWidget
-from ..constants import (
-    DEFAULT_PAGE_SIZE,
-    STATUS_MESSAGE_SUCCESS_CLEAR_SECONDS,
-)
+from .todo_management import TodoManagementWidget
 
 
 class MainWindow(Gtk.ApplicationWindow):
@@ -294,7 +293,7 @@ class MainWindow(Gtk.ApplicationWindow):
             refresh_key,
             refresh_mod,
             Gtk.AccelFlags.VISIBLE,
-            lambda *args: self._on_refresh_clicked(None)
+            lambda *args: self._on_refresh_clicked(None),
         )
 
         # Ctrl+comma: Settings
@@ -303,16 +302,13 @@ class MainWindow(Gtk.ApplicationWindow):
             settings_key,
             settings_mod,
             Gtk.AccelFlags.VISIBLE,
-            lambda *args: self._on_settings_clicked(None)
+            lambda *args: self._on_settings_clicked(None),
         )
 
         # Ctrl+N: New TODO (switch to TODO tab)
         new_todo_key, new_todo_mod = Gtk.accelerator_parse("<Control>n")
         accel_group.connect(
-            new_todo_key,
-            new_todo_mod,
-            Gtk.AccelFlags.VISIBLE,
-            self._on_new_todo_shortcut
+            new_todo_key, new_todo_mod, Gtk.AccelFlags.VISIBLE, self._on_new_todo_shortcut
         )
 
     def _on_new_todo_shortcut(self, *args):
@@ -320,7 +316,7 @@ class MainWindow(Gtk.ApplicationWindow):
         # Switch to TODO management tab (index 3)
         self.notebook.set_current_page(3)
         # Trigger the add TODO dialog
-        if hasattr(self.todo_widget, '_on_add_clicked'):
+        if hasattr(self.todo_widget, "_on_add_clicked"):
             self.todo_widget._on_add_clicked(None)
         return True
 
@@ -343,17 +339,13 @@ class MainWindow(Gtk.ApplicationWindow):
             self.pings_store.clear()
 
             for ping in pings:
-                dt = datetime.fromtimestamp(ping['timestamp'])
-                time_str = dt.strftime('%Y-%m-%d %H:%M:%S')
-                tags_str = ', '.join(ping.get('tags', []))
+                dt = datetime.fromtimestamp(ping["timestamp"])
+                time_str = dt.strftime("%Y-%m-%d %H:%M:%S")
+                tags_str = ", ".join(ping.get("tags", []))
 
-                self.pings_store.append([
-                    time_str,
-                    ping['activity'],
-                    tags_str,
-                    ping.get('notes', ''),
-                    ping['id']
-                ])
+                self.pings_store.append(
+                    [time_str, ping["activity"], tags_str, ping.get("notes", ""), ping["id"]]
+                )
 
             # Update pagination controls
             self.page_label.set_markup(f"<b>Page {self.current_page + 1} of {total_pages}</b>")
@@ -367,9 +359,7 @@ class MainWindow(Gtk.ApplicationWindow):
                 f"<small>Showing {start_idx}-{end_idx} of {total_pings} pings</small>"
             )
         except Exception as e:
-            self.pings_info_label.set_markup(
-                f"<small>Error loading pings: {e}</small>"
-            )
+            self.pings_info_label.set_markup(f"<small>Error loading pings: {e}</small>")
 
     def refresh_tasks(self):
         """Refresh the tasks list."""
@@ -378,21 +368,19 @@ class MainWindow(Gtk.ApplicationWindow):
             self.tasks_store.clear()
 
             for task in tasks:
-                self.tasks_store.append([
-                    task['title'],
-                    task['state'],
-                    task.get('iteration', ''),
-                    task.get('url', ''),
-                    task['id']
-                ])
+                self.tasks_store.append(
+                    [
+                        task["title"],
+                        task["state"],
+                        task.get("iteration", ""),
+                        task.get("url", ""),
+                        task["id"],
+                    ]
+                )
 
-            self.tasks_info_label.set_markup(
-                f"<small>Showing {len(tasks)} tasks</small>"
-            )
+            self.tasks_info_label.set_markup(f"<small>Showing {len(tasks)} tasks</small>")
         except Exception as e:
-            self.tasks_info_label.set_markup(
-                f"<small>Error loading tasks: {e}</small>"
-            )
+            self.tasks_info_label.set_markup(f"<small>Error loading tasks: {e}</small>")
 
     def refresh_events(self):
         """Refresh the calendar events list."""
@@ -405,23 +393,18 @@ class MainWindow(Gtk.ApplicationWindow):
             self.events_store.clear()
 
             for event in events:
-                dt = datetime.fromtimestamp(event['start_time'])
-                time_str = dt.strftime('%Y-%m-%d %H:%M')
+                dt = datetime.fromtimestamp(event["start_time"])
+                time_str = dt.strftime("%Y-%m-%d %H:%M")
 
-                self.events_store.append([
-                    time_str,
-                    event['summary'],
-                    event.get('location', ''),
-                    event['id']
-                ])
+                self.events_store.append(
+                    [time_str, event["summary"], event.get("location", ""), event["id"]]
+                )
 
             self.events_info_label.set_markup(
                 f"<small>Showing {len(events)} upcoming events</small>"
             )
         except Exception as e:
-            self.events_info_label.set_markup(
-                f"<small>Error loading events: {e}</small>"
-            )
+            self.events_info_label.set_markup(f"<small>Error loading events: {e}</small>")
 
     def _on_prev_page_clicked(self, button):
         """Handle previous page button click."""
@@ -459,9 +442,9 @@ class MainWindow(Gtk.ApplicationWindow):
         self._refresh_pings()
         self.refresh_tasks()
         self.refresh_events()
-        if hasattr(self, 'todo_widget'):
+        if hasattr(self, "todo_widget"):
             self.todo_widget.refresh()
-        if hasattr(self, 'time_analysis_widget'):
+        if hasattr(self, "time_analysis_widget"):
             self.time_analysis_widget.refresh()
 
     def set_status(self, message: str):

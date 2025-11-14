@@ -1,23 +1,25 @@
 """Settings dialog for configuration."""
 
 import gi
-gi.require_version('Gtk', '3.0')
-from gi.repository import Gtk
+
+gi.require_version("Gtk", "3.0")
 from typing import Optional
 
+from gi.repository import Gtk
+
 from ..constants import (
+    DEFAULT_CALENDAR_IDS,
     DEFAULT_PING_INTERVAL_MINUTES,
-    MIN_PING_INTERVAL_MINUTES,
+    DEFAULT_SYNC_INTERVAL_MINUTES,
     MAX_PING_INTERVAL_MINUTES,
+    MAX_SYNC_INTERVAL_MINUTES,
+    MIN_PING_INTERVAL_MINUTES,
+    MIN_SYNC_INTERVAL_MINUTES,
     PING_INTERVAL_INCREMENT,
     PING_INTERVAL_LARGE_INCREMENT,
-    DEFAULT_SYNC_INTERVAL_MINUTES,
-    MIN_SYNC_INTERVAL_MINUTES,
-    MAX_SYNC_INTERVAL_MINUTES,
+    POISSON_DISTRIBUTION_NOTE,
     SYNC_INTERVAL_INCREMENT,
     SYNC_INTERVAL_LARGE_INCREMENT,
-    POISSON_DISTRIBUTION_NOTE,
-    DEFAULT_CALENDAR_IDS,
 )
 
 
@@ -31,12 +33,7 @@ class SettingsDialog(Gtk.Dialog):
             parent: Parent window
             db: Database instance
         """
-        super().__init__(
-            title="Settings",
-            parent=parent,
-            modal=True,
-            destroy_with_parent=True
-        )
+        super().__init__(title="Settings", parent=parent, modal=True, destroy_with_parent=True)
 
         self.db = db
 
@@ -84,7 +81,9 @@ class SettingsDialog(Gtk.Dialog):
 
         self.ping_interval_spin = Gtk.SpinButton()
         self.ping_interval_spin.set_range(MIN_PING_INTERVAL_MINUTES, MAX_PING_INTERVAL_MINUTES)
-        self.ping_interval_spin.set_increments(PING_INTERVAL_INCREMENT, PING_INTERVAL_LARGE_INCREMENT)
+        self.ping_interval_spin.set_increments(
+            PING_INTERVAL_INCREMENT, PING_INTERVAL_LARGE_INCREMENT
+        )
         self.ping_interval_spin.set_value(DEFAULT_PING_INTERVAL_MINUTES)
         grid.attach(self.ping_interval_spin, 1, row, 1, 1)
 
@@ -105,7 +104,9 @@ class SettingsDialog(Gtk.Dialog):
 
         self.sync_interval_spin = Gtk.SpinButton()
         self.sync_interval_spin.set_range(MIN_SYNC_INTERVAL_MINUTES, MAX_SYNC_INTERVAL_MINUTES)
-        self.sync_interval_spin.set_increments(SYNC_INTERVAL_INCREMENT, SYNC_INTERVAL_LARGE_INCREMENT)
+        self.sync_interval_spin.set_increments(
+            SYNC_INTERVAL_INCREMENT, SYNC_INTERVAL_LARGE_INCREMENT
+        )
         self.sync_interval_spin.set_value(DEFAULT_SYNC_INTERVAL_MINUTES)
         grid.attach(self.sync_interval_spin, 1, row, 1, 1)
 
@@ -275,74 +276,76 @@ class SettingsDialog(Gtk.Dialog):
     def _load_settings(self):
         """Load current settings from database."""
         # General settings
-        ping_interval = self.db.get_config('ping_interval', 45)
+        ping_interval = self.db.get_config("ping_interval", 45)
         self.ping_interval_spin.set_value(ping_interval)
 
-        sync_interval = self.db.get_config('sync_interval', 30)
+        sync_interval = self.db.get_config("sync_interval", 30)
         self.sync_interval_spin.set_value(sync_interval)
 
         # GitHub settings
-        github_token = self.db.get_github_token() or ''
+        github_token = self.db.get_github_token() or ""
         self.github_token_entry.set_text(github_token)
 
-        github_org = self.db.get_config('github_org', '')
+        github_org = self.db.get_config("github_org", "")
         self.github_org_entry.set_text(github_org)
 
-        github_project = self.db.get_config('github_project', 1)
+        github_project = self.db.get_config("github_project", 1)
         self.github_project_spin.set_value(github_project)
 
         # GitHub sync status
-        github_sync_meta = self.db.get_sync_metadata('github')
+        github_sync_meta = self.db.get_sync_metadata("github")
         if github_sync_meta:
             from datetime import datetime
-            last_sync = github_sync_meta.get('last_sync')
+
+            last_sync = github_sync_meta.get("last_sync")
             if last_sync:
                 last_sync_dt = datetime.fromtimestamp(last_sync)
-                last_sync_str = last_sync_dt.strftime('%Y-%m-%d %H:%M:%S')
-                success = github_sync_meta.get('success', False)
+                last_sync_str = last_sync_dt.strftime("%Y-%m-%d %H:%M:%S")
+                success = github_sync_meta.get("success", False)
                 if success:
                     self.github_status_label.set_markup(
                         f"<small>Last synced: {last_sync_str}</small>"
                     )
                 else:
-                    error_msg = github_sync_meta.get('error_message', 'Unknown error')
+                    error_msg = github_sync_meta.get("error_message", "Unknown error")
                     self.github_status_label.set_markup(
                         f"<small><span color='red'>Last sync failed: {error_msg[:50]}</span>\n"
                         f"Time: {last_sync_str}</small>"
                     )
 
         # Google Calendar settings
-        gcal_connected = self.db.get_config('gcal_connected', False)
-        gcal_sync_meta = self.db.get_sync_metadata('gcal')
+        gcal_connected = self.db.get_config("gcal_connected", False)
+        gcal_sync_meta = self.db.get_sync_metadata("gcal")
 
         if gcal_connected:
             status_text = "<span color='green'>✓ Connected</span>"
             if gcal_sync_meta:
                 from datetime import datetime
-                last_sync = gcal_sync_meta.get('last_sync')
+
+                last_sync = gcal_sync_meta.get("last_sync")
                 if last_sync:
                     last_sync_dt = datetime.fromtimestamp(last_sync)
-                    last_sync_str = last_sync_dt.strftime('%Y-%m-%d %H:%M:%S')
-                    success = gcal_sync_meta.get('success', False)
+                    last_sync_str = last_sync_dt.strftime("%Y-%m-%d %H:%M:%S")
+                    success = gcal_sync_meta.get("success", False)
                     if success:
                         status_text += f"\n<small>Last synced: {last_sync_str}</small>"
                     else:
-                        error_msg = gcal_sync_meta.get('error_message', 'Unknown error')
+                        error_msg = gcal_sync_meta.get("error_message", "Unknown error")
                         status_text += f"\n<small><span color='red'>Last sync failed: {error_msg[:50]}</span></small>"
             self.gcal_status_label.set_markup(status_text)
         else:
             self.gcal_status_label.set_markup("<span color='gray'>Not connected</span>")
 
-        gcal_ids = self.db.get_config('gcal_calendar_ids', DEFAULT_CALENDAR_IDS)
-        gcal_ids_text = '\n'.join(gcal_ids)
+        gcal_ids = self.db.get_config("gcal_calendar_ids", DEFAULT_CALENDAR_IDS)
+        gcal_ids_text = "\n".join(gcal_ids)
         buffer = self.gcal_ids_textview.get_buffer()
         buffer.set_text(gcal_ids_text)
 
     def _save_settings(self):
         """Save settings to database."""
         # General settings
-        self.db.set_config('ping_interval', self.ping_interval_spin.get_value())
-        self.db.set_config('sync_interval', self.sync_interval_spin.get_value())
+        self.db.set_config("ping_interval", self.ping_interval_spin.get_value())
+        self.db.set_config("sync_interval", self.sync_interval_spin.get_value())
 
         # GitHub settings
         token_text = self.github_token_entry.get_text().strip()
@@ -350,16 +353,16 @@ class SettingsDialog(Gtk.Dialog):
             self.db.set_github_token(token_text)
         else:
             self.db.delete_github_token()
-        self.db.set_config('github_org', self.github_org_entry.get_text().strip())
-        self.db.set_config('github_project', int(self.github_project_spin.get_value()))
+        self.db.set_config("github_org", self.github_org_entry.get_text().strip())
+        self.db.set_config("github_project", int(self.github_project_spin.get_value()))
 
         # Google Calendar settings
         buffer = self.gcal_ids_textview.get_buffer()
         start_iter = buffer.get_start_iter()
         end_iter = buffer.get_end_iter()
         gcal_ids_text = buffer.get_text(start_iter, end_iter, True)
-        gcal_ids = [line.strip() for line in gcal_ids_text.split('\n') if line.strip()]
-        self.db.set_config('gcal_calendar_ids', gcal_ids or ['primary'])
+        gcal_ids = [line.strip() for line in gcal_ids_text.split("\n") if line.strip()]
+        self.db.set_config("gcal_calendar_ids", gcal_ids or ["primary"])
 
     def _on_show_github_token_toggled(self, checkbox):
         """Toggle GitHub token visibility."""
@@ -367,9 +370,10 @@ class SettingsDialog(Gtk.Dialog):
 
     def _on_connect_calendar_clicked(self, button):
         """Handle Google Calendar connection button click."""
+        import threading
+
         from ..sync.gcal_credentials import validate_credentials
         from ..sync.gcal_sync import GoogleCalendarSync
-        import threading
 
         # Validate credentials first
         creds_valid, error_msg = validate_credentials()
@@ -381,7 +385,7 @@ class SettingsDialog(Gtk.Dialog):
                 destroy_with_parent=True,
                 message_type=Gtk.MessageType.ERROR,
                 buttons=Gtk.ButtonsType.OK,
-                text="OAuth Credentials Not Configured"
+                text="OAuth Credentials Not Configured",
             )
             dialog.format_secondary_text(error_msg)
             dialog.run()
@@ -395,25 +399,29 @@ class SettingsDialog(Gtk.Dialog):
             """Run OAuth flow in background thread."""
             try:
                 # Create sync instance and trigger authentication
-                gcal_ids = self.db.get_config('gcal_calendar_ids', DEFAULT_CALENDAR_IDS)
+                gcal_ids = self.db.get_config("gcal_calendar_ids", DEFAULT_CALENDAR_IDS)
                 gcal_sync = GoogleCalendarSync(self.db, gcal_ids)
 
                 # This will trigger OAuth flow if needed
                 if gcal_sync._authenticate():
                     # Mark as connected
-                    self.db.set_config('gcal_connected', True)
+                    self.db.set_config("gcal_connected", True)
 
                     # Update UI on main thread
                     from gi.repository import GLib
+
                     GLib.idle_add(self._on_calendar_connected, True)
                 else:
                     from gi.repository import GLib
+
                     GLib.idle_add(self._on_calendar_connected, False)
 
             except Exception as e:
                 import logging
+
                 logging.error(f"Calendar connection error: {e}")
                 from gi.repository import GLib
+
                 GLib.idle_add(self._on_calendar_connected, False)
 
         # Run in background thread
@@ -438,9 +446,11 @@ class SettingsDialog(Gtk.Dialog):
 
     def _on_test_github_clicked(self, button):
         """Handle GitHub test connection button click."""
-        from ..sync.github_sync import GitHubSync
         import threading
+
         from gi.repository import GLib
+
+        from ..sync.github_sync import GitHubSync
 
         # Get current settings
         token = self.github_token_entry.get_text().strip()
@@ -455,7 +465,9 @@ class SettingsDialog(Gtk.Dialog):
 
         # Disable button and show testing status
         button.set_sensitive(False)
-        self.github_status_label.set_markup("<small><span color='blue'>⟳ Testing connection...</span></small>")
+        self.github_status_label.set_markup(
+            "<small><span color='blue'>⟳ Testing connection...</span></small>"
+        )
 
         def test():
             """Test GitHub connection in background thread."""
@@ -465,7 +477,11 @@ class SettingsDialog(Gtk.Dialog):
                 iteration = github_sync._get_current_iteration()
 
                 # If we got here without error, connection works
-                GLib.idle_add(self._on_github_test_complete, True, f"Connected successfully! Current iteration: {iteration or 'None'}")
+                GLib.idle_add(
+                    self._on_github_test_complete,
+                    True,
+                    f"Connected successfully! Current iteration: {iteration or 'None'}",
+                )
             except Exception as e:
                 error_msg = str(e)
                 GLib.idle_add(self._on_github_test_complete, False, error_msg)
@@ -487,7 +503,10 @@ class SettingsDialog(Gtk.Dialog):
                 for page_num in range(child.get_n_pages()):
                     page = child.get_nth_page(page_num)
                     for widget in page.get_children():
-                        if isinstance(widget, Gtk.Button) and widget.get_label() == "Test Connection":
+                        if (
+                            isinstance(widget, Gtk.Button)
+                            and widget.get_label() == "Test Connection"
+                        ):
                             widget.set_sensitive(True)
 
         # Update status label
@@ -505,7 +524,9 @@ class SettingsDialog(Gtk.Dialog):
     def _on_create_backup_clicked(self, button):
         """Handle create backup button click."""
         button.set_sensitive(False)
-        self.backup_status_label.set_markup("<small><span color='blue'>Creating backup...</span></small>")
+        self.backup_status_label.set_markup(
+            "<small><span color='blue'>Creating backup...</span></small>"
+        )
 
         try:
             backup_path = self.db.create_backup(reason="manual")
@@ -528,9 +549,7 @@ class SettingsDialog(Gtk.Dialog):
         """Handle export data button click."""
         # Show file chooser dialog
         dialog = Gtk.FileChooserDialog(
-            title="Export Data to JSON",
-            parent=self,
-            action=Gtk.FileChooserAction.SAVE
+            title="Export Data to JSON", parent=self, action=Gtk.FileChooserAction.SAVE
         )
         dialog.add_button("Cancel", Gtk.ResponseType.CANCEL)
         dialog.add_button("Save", Gtk.ResponseType.OK)
@@ -542,7 +561,9 @@ class SettingsDialog(Gtk.Dialog):
 
         if response == Gtk.ResponseType.OK and export_path:
             button.set_sensitive(False)
-            self.backup_status_label.set_markup("<small><span color='blue'>Exporting data...</span></small>")
+            self.backup_status_label.set_markup(
+                "<small><span color='blue'>Exporting data...</span></small>"
+            )
 
             try:
                 if self.db.export_data(export_path):

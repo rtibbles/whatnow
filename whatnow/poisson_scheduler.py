@@ -27,13 +27,13 @@ Usage:
     scheduler.stop()
 """
 
+import logging
+import math
+import random
 import threading
 import time
-import random
-import math
-from typing import Callable, Optional
 from datetime import datetime
-import logging
+from typing import Callable, Optional
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -47,8 +47,11 @@ class PoissonScheduler:
     Poisson statistics.
     """
 
-    def __init__(self, average_gap_minutes: float = 45.0,
-                 ping_callback: Optional[Callable[[int], None]] = None):
+    def __init__(
+        self,
+        average_gap_minutes: float = 45.0,
+        ping_callback: Optional[Callable[[int], None]] = None,
+    ):
         """Initialize the Poisson scheduler.
 
         Args:
@@ -71,7 +74,9 @@ class PoissonScheduler:
         self._stop_event.clear()
         self._thread = threading.Thread(target=self._run_scheduler, daemon=False)
         self._thread.start()
-        logger.info(f"Poisson scheduler started with average gap of {self.average_gap_minutes} minutes")
+        logger.info(
+            f"Poisson scheduler started with average gap of {self.average_gap_minutes} minutes"
+        )
 
     def stop(self):
         """Stop the scheduler."""
@@ -178,6 +183,7 @@ class PingStatistics:
 
 # Example usage and testing
 if __name__ == "__main__":
+
     def test_callback(timestamp: int):
         dt = datetime.fromtimestamp(timestamp)
         print(f"PING! at {dt.strftime('%Y-%m-%d %H:%M:%S')}")
@@ -186,7 +192,9 @@ if __name__ == "__main__":
     scheduler = PoissonScheduler(average_gap_minutes=1.0, ping_callback=test_callback)
 
     print(f"Expected pings per day (45min avg): {PingStatistics.expected_pings_per_day(45.0):.1f}")
-    print(f"Expected pings per week (45min avg): {PingStatistics.expected_pings_per_week(45.0):.1f}")
+    print(
+        f"Expected pings per week (45min avg): {PingStatistics.expected_pings_per_week(45.0):.1f}"
+    )
 
     print("\nStarting scheduler (will run for 5 minutes with 1-minute average)...")
     scheduler.start()

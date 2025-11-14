@@ -1,12 +1,13 @@
 """Secure credential storage using system keyring and encrypted fallback."""
 
-import logging
-from typing import Optional
-import keyring
-from keyring.errors import KeyringError, NoKeyringError
-from cryptography.fernet import Fernet
 import base64
+import logging
 import os
+from typing import Optional
+
+import keyring
+from cryptography.fernet import Fernet
+from keyring.errors import KeyringError, NoKeyringError
 
 logger = logging.getLogger(__name__)
 
@@ -36,9 +37,7 @@ class CredentialStore:
         self._encryption_key: Optional[bytes] = None
 
         if not self._keyring_available and db:
-            logger.warning(
-                "System keyring not available, using encrypted database fallback"
-            )
+            logger.warning("System keyring not available, using encrypted database fallback")
             self._init_encryption()
 
     def _check_keyring(self) -> bool:

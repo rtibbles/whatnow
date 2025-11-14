@@ -1,11 +1,13 @@
 """Time analysis view for TagTime statistics."""
 
 import gi
-gi.require_version('Gtk', '3.0')
-from gi.repository import Gtk, Pango
-from datetime import datetime, timedelta
-from typing import Optional, Dict, List, Any
+
+gi.require_version("Gtk", "3.0")
 from collections import defaultdict
+from datetime import datetime, timedelta
+from typing import Any, Dict, List, Optional
+
+from gi.repository import Gtk, Pango
 
 
 class TimeAnalysisWidget(Gtk.Box):
@@ -225,7 +227,7 @@ class TimeAnalysisWidget(Gtk.Box):
         row += 1
 
         # Meeting pings
-        meeting_pings = sum(1 for p in pings if p.get('is_meeting'))
+        meeting_pings = sum(1 for p in pings if p.get("is_meeting"))
         label = Gtk.Label(label="Meeting Pings:", xalign=0)
         label.set_markup("<b>Meeting Pings:</b>")
         grid.attach(label, 0, row, 1, 1)
@@ -280,7 +282,7 @@ class TimeAnalysisWidget(Gtk.Box):
         # Count pings per tag
         tag_counts = defaultdict(int)
         for ping in pings:
-            tags = ping.get('tags', [])
+            tags = ping.get("tags", [])
             if tags:
                 for tag in tags:
                     tag_counts[tag] += 1
@@ -295,12 +297,7 @@ class TimeAnalysisWidget(Gtk.Box):
             percentage = (count / total_pings) * 100
             hours = (count / total_pings) * total_hours
 
-            self.tags_box.store.append([
-                tag,
-                count,
-                f"{percentage:.1f}%",
-                f"{hours:.1f}h"
-            ])
+            self.tags_box.store.append([tag, count, f"{percentage:.1f}%", f"{hours:.1f}h"])
 
     def _analyze_by_todos(self, pings: List[Dict], total_hours: float):
         """Analyze pings by TODOs.
@@ -319,25 +316,25 @@ class TimeAnalysisWidget(Gtk.Box):
         todo_names = {}
 
         for ping in pings:
-            todo_id = ping.get('todo_id')
-            todo_type = ping.get('todo_type')
+            todo_id = ping.get("todo_id")
+            todo_type = ping.get("todo_type")
 
             if not todo_id:
                 continue
 
-            if todo_type == 'meeting':
+            if todo_type == "meeting":
                 # Get event summary from notes or event ID
-                name = ping.get('notes', 'Meeting')
-            elif todo_type == 'github':
+                name = ping.get("notes", "Meeting")
+            elif todo_type == "github":
                 # Get GitHub task title
                 task = self.db.get_github_tasks()
-                task_match = next((t for t in task if t['id'] == todo_id), None)
-                name = task_match['title'] if task_match else f"GitHub Task {todo_id}"
-            elif todo_type == 'local':
+                task_match = next((t for t in task if t["id"] == todo_id), None)
+                name = task_match["title"] if task_match else f"GitHub Task {todo_id}"
+            elif todo_type == "local":
                 # Get local TODO text
                 try:
                     todo = self.db.get_local_todo(int(todo_id))
-                    name = todo['text'] if todo else f"Local TODO {todo_id}"
+                    name = todo["text"] if todo else f"Local TODO {todo_id}"
                 except:
                     name = f"Local TODO {todo_id}"
             else:
@@ -358,12 +355,7 @@ class TimeAnalysisWidget(Gtk.Box):
             percentage = (count / total_pings) * 100
             hours = (count / total_pings) * total_hours
 
-            self.todos_box.store.append([
-                name,
-                count,
-                f"{percentage:.1f}%",
-                f"{hours:.1f}h"
-            ])
+            self.todos_box.store.append([name, count, f"{percentage:.1f}%", f"{hours:.1f}h"])
 
     def _on_range_changed(self, combo):
         """Handle range change."""

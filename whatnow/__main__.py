@@ -19,34 +19,36 @@ components: the ping scheduler, sync threads, UI windows, and system tray icon.
 """
 
 import gi
-gi.require_version('Gtk', '3.0')
-from gi.repository import Gtk, GLib
-import sys
-import signal
+
+gi.require_version("Gtk", "3.0")
 import logging
+import signal
+import sys
 import threading
 import time
-from typing import Optional
 from datetime import datetime
+from typing import Optional
 
+from gi.repository import GLib, Gtk
+
+from .constants import (
+    DEFAULT_CALENDAR_DAYS_AHEAD,
+    DEFAULT_CALENDAR_IDS,
+    DEFAULT_PING_INTERVAL_MINUTES,
+    DEFAULT_SYNC_INTERVAL_MINUTES,
+    INITIAL_SYNC_DELAY_SECONDS,
+    STATUS_MESSAGE_AUTO_CLEAR_SECONDS,
+    THREAD_SHUTDOWN_TIMEOUT_SECONDS,
+    TOOLTIP_UPDATE_INTERVAL_SECONDS,
+)
 from .database import Database
 from .poisson_scheduler import PoissonScheduler
+from .sync.gcal_sync import GoogleCalendarSync
+from .sync.github_sync import GitHubSync
 from .ui.main_window import MainWindow
 from .ui.ping_dialog import show_ping_dialog
 from .ui.settings import show_settings_dialog
 from .ui.tray_icon import TrayIcon
-from .sync.github_sync import GitHubSync
-from .sync.gcal_sync import GoogleCalendarSync
-from .constants import (
-    DEFAULT_PING_INTERVAL_MINUTES,
-    DEFAULT_SYNC_INTERVAL_MINUTES,
-    DEFAULT_CALENDAR_DAYS_AHEAD,
-    DEFAULT_CALENDAR_IDS,
-    INITIAL_SYNC_DELAY_SECONDS,
-    TOOLTIP_UPDATE_INTERVAL_SECONDS,
-    THREAD_SHUTDOWN_TIMEOUT_SECONDS,
-    STATUS_MESSAGE_AUTO_CLEAR_SECONDS,
-)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -83,24 +85,20 @@ class WhatNowApp(Gtk.Application):
         logger.info(f"Database initialized at {self.db.db_path}")
 
         # Check if first run (no settings configured)
-        ping_interval = self.db.get_config('ping_interval')
+        ping_interval = self.db.get_config("ping_interval")
         if ping_interval is None:
             logger.info("First run detected, showing settings dialog")
             self._show_first_run_dialog()
 
         # Create main window
-        self.main_window = MainWindow(
-            self,
-            self.db,
-            on_settings_click=self._on_settings_click
-        )
+        self.main_window = MainWindow(self, self.db, on_settings_click=self._on_settings_click)
 
         # Create system tray icon
         self.tray_icon = TrayIcon(
             on_show=self._on_show_window,
             on_settings=self._on_settings_click,
             on_work_toggle=self._on_work_toggle,
-            on_quit=self._on_quit
+            on_quit=self._on_quit,
         )
 
         # Check if there's an active work session and restore state
@@ -114,7 +112,9 @@ class WhatNowApp(Gtk.Application):
         self._start_sync_thread()
 
         # Start tooltip update timer
-        self.tooltip_update_timer = GLib.timeout_add_seconds(TOOLTIP_UPDATE_INTERVAL_SECONDS, self._update_tray_tooltip)
+        self.tooltip_update_timer = GLib.timeout_add_seconds(
+            TOOLTIP_UPDATE_INTERVAL_SECONDS, self._update_tray_tooltip
+        )
         self._update_tray_tooltip()
 
         # Show main window
@@ -174,7 +174,7 @@ class WhatNowApp(Gtk.Application):
             flags=0,
             message_type=Gtk.MessageType.INFO,
             buttons=Gtk.ButtonsType.OK,
-            text="Welcome to WhatNow!"
+            text="Welcome to WhatNow!",
         )
         dialog.format_secondary_text(
             "This is your first time running WhatNow. "
@@ -193,11 +193,10 @@ class WhatNowApp(Gtk.Application):
 
     def _start_scheduler(self):
         """Start the Poisson ping scheduler."""
-        ping_interval = self.db.get_config('ping_interval', DEFAULT_PING_INTERVAL_MINUTES)
+        ping_interval = self.db.get_config("ping_interval", DEFAULT_PING_INTERVAL_MINUTES)
 
         self.scheduler = PoissonScheduler(
-            average_gap_minutes=ping_interval,
-            ping_callback=self._on_ping_triggered
+            average_gap_minutes=ping_interval, ping_callback=self._on_ping_triggered
         )
         self.scheduler.start()
 
@@ -232,12 +231,12 @@ class WhatNowApp(Gtk.Application):
             logger.info(f"Auto-logging meeting: {event['summary']}")
             self.db.add_ping(
                 timestamp=timestamp,
-                todo_id=event['id'],
-                todo_type='meeting',
-                tags=['meeting'],
-                notes=event['summary'],
-                event_id=event['id'],
-                is_meeting=True
+                todo_id=event["id"],
+                todo_type="meeting",
+                tags=["meeting"],
+                notes=event["summary"],
+                event_id=event["id"],
+                is_meeting=True,
             )
             return False
 
@@ -247,15 +246,13 @@ class WhatNowApp(Gtk.Application):
         # Get active local TODOs
         local_todos = self.db.get_local_todos(active_only=True)
 
-        def on_ping_submitted(ts: int, todo_id: str, todo_type: str, tags: list, notes: Optional[str]):
+        def on_ping_submitted(
+            ts: int, todo_id: str, todo_type: str, tags: list, notes: Optional[str]
+        ):
             """Handle ping submission."""
             try:
                 ping_id = self.db.add_ping(
-                    timestamp=ts,
-                    todo_id=todo_id,
-                    todo_type=todo_type,
-                    tags=tags,
-                    notes=notes
+                    timestamp=ts, todo_id=todo_id, todo_type=todo_type, tags=tags, notes=notes
                 )
                 logger.info(f"Ping saved with ID {ping_id}: {todo_type}/{todo_id}")
 
@@ -268,12 +265,7 @@ class WhatNowApp(Gtk.Application):
 
         # Show dialog
         show_ping_dialog(
-            self.main_window,
-            timestamp,
-            github_tasks,
-            local_todos,
-            self.db,
-            on_ping_submitted
+            self.main_window, timestamp, github_tasks, local_todos, self.db, on_ping_submitted
         )
 
         return False  # Don't repeat
@@ -293,25 +285,20 @@ class WhatNowApp(Gtk.Application):
 
         while self.sync_running and not self.shutdown_event.is_set():
             try:
-                sync_interval = self.db.get_config('sync_interval', DEFAULT_SYNC_INTERVAL_MINUTES)
+                sync_interval = self.db.get_config("sync_interval", DEFAULT_SYNC_INTERVAL_MINUTES)
                 logger.info("Running background sync")
 
                 # Sync GitHub if configured
                 github_token = self.db.get_github_token()
-                github_org = self.db.get_config('github_org')
-                github_project = self.db.get_config('github_project')
+                github_org = self.db.get_config("github_org")
+                github_project = self.db.get_config("github_project")
 
                 if github_token and github_org and github_project:
                     try:
                         # Show sync status
                         GLib.idle_add(self._set_sync_status, "Syncing GitHub...")
 
-                        github_sync = GitHubSync(
-                            self.db,
-                            github_token,
-                            github_org,
-                            github_project
-                        )
+                        github_sync = GitHubSync(self.db, github_token, github_org, github_project)
                         if github_sync.sync():
                             # Update main window
                             GLib.idle_add(self._refresh_github_tasks)
@@ -327,8 +314,8 @@ class WhatNowApp(Gtk.Application):
                     break
 
                 # Sync Google Calendar if configured
-                gcal_connected = self.db.get_config('gcal_connected', False)
-                gcal_ids = self.db.get_config('gcal_calendar_ids', DEFAULT_CALENDAR_IDS)
+                gcal_connected = self.db.get_config("gcal_connected", False)
+                gcal_ids = self.db.get_config("gcal_calendar_ids", DEFAULT_CALENDAR_IDS)
 
                 if gcal_connected:
                     try:
@@ -367,7 +354,9 @@ class WhatNowApp(Gtk.Application):
         if self.main_window:
             self.main_window.set_status(message)
             # Auto-clear after a few seconds
-            GLib.timeout_add_seconds(STATUS_MESSAGE_AUTO_CLEAR_SECONDS, self.main_window.clear_status)
+            GLib.timeout_add_seconds(
+                STATUS_MESSAGE_AUTO_CLEAR_SECONDS, self.main_window.clear_status
+            )
         return False
 
     def _refresh_github_tasks(self):
@@ -440,7 +429,7 @@ class WhatNowApp(Gtk.Application):
 
         if saved:
             # Update scheduler with new ping interval
-            ping_interval = self.db.get_config('ping_interval', 45)
+            ping_interval = self.db.get_config("ping_interval", 45)
             if self.scheduler:
                 self.scheduler.set_average_gap(ping_interval)
 
@@ -458,5 +447,5 @@ def main():
     sys.exit(exit_status)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

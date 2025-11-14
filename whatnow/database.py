@@ -29,17 +29,26 @@ Database Schema:
 - config: Key-value configuration storage
 """
 
-import os
-from pathlib import Path
-from datetime import datetime
-from typing import List, Dict, Optional, Any
 import json
 import logging
+import os
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
-from sqlalchemy import create_engine, select, and_
-from sqlalchemy.orm import Session, sessionmaker, scoped_session
+from sqlalchemy import and_, create_engine, select
+from sqlalchemy.orm import Session, scoped_session, sessionmaker
 
-from .models import Base, Ping, GitHubTask, CalendarEvent, SyncMetadata, Config, WorkSession, LocalTODO
+from .models import (
+    Base,
+    CalendarEvent,
+    Config,
+    GitHubTask,
+    LocalTODO,
+    Ping,
+    SyncMetadata,
+    WorkSession,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -55,26 +64,25 @@ class Database:
         """
         if db_path is None:
             # Use XDG_DATA_HOME or default to ~/.local/share
-            data_dir = os.environ.get('XDG_DATA_HOME',
-                                     os.path.expanduser('~/.local/share'))
-            app_dir = Path(data_dir) / 'whatnow'
+            data_dir = os.environ.get("XDG_DATA_HOME", os.path.expanduser("~/.local/share"))
+            app_dir = Path(data_dir) / "whatnow"
             app_dir.mkdir(parents=True, exist_ok=True)
-            db_path = str(app_dir / 'whatnow.db')
+            db_path = str(app_dir / "whatnow.db")
 
         self.db_path = db_path
         self.engine = create_engine(
             f"sqlite:///{db_path}",
             echo=False,
             # Enable thread-safe connection pooling for SQLite
-            connect_args={'check_same_thread': False},
-            pool_pre_ping=True  # Verify connections before use
+            connect_args={"check_same_thread": False},
+            pool_pre_ping=True,  # Verify connections before use
         )
         # Use scoped_session for thread-local sessions
         session_factory = sessionmaker(bind=self.engine)
         self.SessionLocal = scoped_session(session_factory)
 
         # Create backups directory
-        self.backup_dir = Path(self.db_path).parent / 'backups'
+        self.backup_dir = Path(self.db_path).parent / "backups"
         self.backup_dir.mkdir(parents=True, exist_ok=True)
 
         # Run database migrations
@@ -82,6 +90,7 @@ class Database:
 
         # Initialize secure credential storage
         from .credentials import CredentialStore
+
         self._credentials = CredentialStore(db=self)
 
         # Migrate existing plaintext credentials
@@ -90,10 +99,11 @@ class Database:
     def _run_migrations(self):
         """Run Alembic migrations to upgrade database schema."""
         try:
-            from alembic.config import Config
-            from alembic import command
-            import tempfile
             import shutil
+            import tempfile
+
+            from alembic import command
+            from alembic.config import Config
 
             # Get the package directory where alembic.ini is located
             package_dir = Path(__file__).parent
@@ -142,7 +152,7 @@ class Database:
             from datetime import datetime
 
             # Generate backup filename with timestamp
-            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             backup_filename = f"whatnow_backup_{timestamp}_{reason}.db"
             backup_path = self.backup_dir / backup_filename
 
@@ -174,7 +184,7 @@ class Database:
             backups = sorted(
                 self.backup_dir.glob("whatnow_backup_*.db"),
                 key=lambda p: p.stat().st_mtime,
-                reverse=True
+                reverse=True,
             )
 
             # Remove old backups
@@ -200,16 +210,16 @@ class Database:
 
             # Gather all data
             data = {
-                'export_date': datetime.now().isoformat(),
-                'pings': self.get_pings(limit=100000),  # Export all pings
-                'local_todos': self.get_local_todos(active_only=False),
-                'github_tasks': self.get_github_tasks(),
-                'work_sessions': self._export_work_sessions(),
-                'config': self._export_config(),
+                "export_date": datetime.now().isoformat(),
+                "pings": self.get_pings(limit=100000),  # Export all pings
+                "local_todos": self.get_local_todos(active_only=False),
+                "github_tasks": self.get_github_tasks(),
+                "work_sessions": self._export_work_sessions(),
+                "config": self._export_config(),
             }
 
             # Write to file
-            with open(export_path, 'w') as f:
+            with open(export_path, "w") as f:
                 json.dump(data, f, indent=2, default=str)
 
             logger.info(f"Data exported to: {export_path}")
@@ -229,9 +239,9 @@ class Database:
             sessions = session.execute(select(WorkSession)).scalars().all()
             return [
                 {
-                    'id': s.id,
-                    'start_time': s.start_time,
-                    'end_time': s.end_time,
+                    "id": s.id,
+                    "start_time": s.start_time,
+                    "end_time": s.end_time,
                 }
                 for s in sessions
             ]
@@ -247,10 +257,16 @@ class Database:
             return {c.key: c.value for c in configs}
 
     # Ping operations
-    def add_ping(self, timestamp: int, todo_id: Optional[str] = None,
-                 todo_type: Optional[str] = None, tags: Optional[List[str]] = None,
-                 notes: Optional[str] = None, event_id: Optional[str] = None,
-                 is_meeting: bool = False) -> int:
+    def add_ping(
+        self,
+        timestamp: int,
+        todo_id: Optional[str] = None,
+        todo_type: Optional[str] = None,
+        tags: Optional[List[str]] = None,
+        notes: Optional[str] = None,
+        event_id: Optional[str] = None,
+        is_meeting: bool = False,
+    ) -> int:
         """Add a new ping to the database.
 
         Args:
@@ -273,7 +289,7 @@ class Database:
                 tags=tags,
                 notes=notes,
                 event_id=event_id,
-                is_meeting=is_meeting
+                is_meeting=is_meeting,
             )
             session.add(ping)
             session.commit()
@@ -299,18 +315,20 @@ class Database:
                 # Resolve activity description
                 activity = self._resolve_ping_activity(p, session)
 
-                result.append({
-                    'id': p.id,
-                    'timestamp': p.timestamp,
-                    'todo_id': p.todo_id,
-                    'todo_type': p.todo_type,
-                    'tags': p.tags or [],
-                    'notes': p.notes,
-                    'event_id': p.event_id,
-                    'is_meeting': p.is_meeting,
-                    'created_at': p.created_at,
-                    'activity': activity
-                })
+                result.append(
+                    {
+                        "id": p.id,
+                        "timestamp": p.timestamp,
+                        "todo_id": p.todo_id,
+                        "todo_type": p.todo_type,
+                        "tags": p.tags or [],
+                        "notes": p.notes,
+                        "event_id": p.event_id,
+                        "is_meeting": p.is_meeting,
+                        "created_at": p.created_at,
+                        "activity": activity,
+                    }
+                )
 
             return result
 
@@ -322,6 +340,7 @@ class Database:
         """
         with self.get_session() as session:
             from sqlalchemy import func
+
             stmt = select(func.count(Ping.id))
             count = session.execute(stmt).scalar()
             return count or 0
@@ -349,18 +368,20 @@ class Database:
                 # Resolve activity description
                 activity = self._resolve_ping_activity(p, session)
 
-                result.append({
-                    'id': p.id,
-                    'timestamp': p.timestamp,
-                    'todo_id': p.todo_id,
-                    'todo_type': p.todo_type,
-                    'tags': p.tags or [],
-                    'notes': p.notes,
-                    'event_id': p.event_id,
-                    'is_meeting': p.is_meeting,
-                    'created_at': p.created_at,
-                    'activity': activity
-                })
+                result.append(
+                    {
+                        "id": p.id,
+                        "timestamp": p.timestamp,
+                        "todo_id": p.todo_id,
+                        "todo_type": p.todo_type,
+                        "tags": p.tags or [],
+                        "notes": p.notes,
+                        "event_id": p.event_id,
+                        "is_meeting": p.is_meeting,
+                        "created_at": p.created_at,
+                        "activity": activity,
+                    }
+                )
 
             return result
 
@@ -387,7 +408,11 @@ class Database:
         """
         with self.get_session() as session:
             # Find active work session (no end_time)
-            stmt = select(WorkSession).where(WorkSession.end_time == None).order_by(WorkSession.start_time.desc())
+            stmt = (
+                select(WorkSession)
+                .where(WorkSession.end_time == None)
+                .order_by(WorkSession.start_time.desc())
+            )
             result = session.execute(stmt).scalars().first()
 
             if result:
@@ -406,15 +431,19 @@ class Database:
             Work session dictionary or None if not working
         """
         with self.get_session() as session:
-            stmt = select(WorkSession).where(WorkSession.end_time == None).order_by(WorkSession.start_time.desc())
+            stmt = (
+                select(WorkSession)
+                .where(WorkSession.end_time == None)
+                .order_by(WorkSession.start_time.desc())
+            )
             result = session.execute(stmt).scalars().first()
 
             if result:
                 return {
-                    'id': result.id,
-                    'start_time': result.start_time,
-                    'end_time': result.end_time,
-                    'total_seconds': result.total_seconds
+                    "id": result.id,
+                    "start_time": result.start_time,
+                    "end_time": result.end_time,
+                    "total_seconds": result.total_seconds,
                 }
 
             return None
@@ -440,7 +469,11 @@ class Database:
         """
         with self.get_session() as session:
             # Find active work session within the transaction
-            stmt = select(WorkSession).where(WorkSession.end_time == None).order_by(WorkSession.start_time.desc())
+            stmt = (
+                select(WorkSession)
+                .where(WorkSession.end_time == None)
+                .order_by(WorkSession.start_time.desc())
+            )
             active_session = session.execute(stmt).scalars().first()
 
             now = int(datetime.now().timestamp())
@@ -479,20 +512,17 @@ class Database:
         with self.get_session() as session:
             stmt = (
                 select(WorkSession)
-                .where(and_(
-                    WorkSession.start_time >= start_ts,
-                    WorkSession.start_time <= end_ts
-                ))
+                .where(and_(WorkSession.start_time >= start_ts, WorkSession.start_time <= end_ts))
                 .order_by(WorkSession.start_time)
             )
             sessions = session.execute(stmt).scalars().all()
 
             return [
                 {
-                    'id': s.id,
-                    'start_time': s.start_time,
-                    'end_time': s.end_time,
-                    'total_seconds': s.total_seconds
+                    "id": s.id,
+                    "start_time": s.start_time,
+                    "end_time": s.end_time,
+                    "total_seconds": s.total_seconds,
                 }
                 for s in sessions
             ]
@@ -507,16 +537,16 @@ class Database:
             Total seconds worked
         """
         sessions = self.get_work_sessions_by_date(date_timestamp)
-        total = sum(s.get('total_seconds', 0) for s in sessions if s.get('total_seconds'))
+        total = sum(s.get("total_seconds", 0) for s in sessions if s.get("total_seconds"))
 
         # Add current session if active and started today
         current = self.get_current_work_session()
         if current:
             dt = datetime.fromtimestamp(date_timestamp)
-            current_dt = datetime.fromtimestamp(current['start_time'])
+            current_dt = datetime.fromtimestamp(current["start_time"])
             if current_dt.date() == dt.date():
                 now = int(datetime.now().timestamp())
-                total += (now - current['start_time'])
+                total += now - current["start_time"]
 
         return total
 
@@ -557,12 +587,12 @@ class Database:
 
             return [
                 {
-                    'id': t.id,
-                    'text': t.text,
-                    'tags': t.tags or [],
-                    'is_active': bool(t.is_active),
-                    'created_at': t.created_at,
-                    'completed_at': t.completed_at
+                    "id": t.id,
+                    "text": t.text,
+                    "tags": t.tags or [],
+                    "is_active": bool(t.is_active),
+                    "created_at": t.created_at,
+                    "completed_at": t.completed_at,
                 }
                 for t in todos
             ]
@@ -581,18 +611,19 @@ class Database:
 
             if todo:
                 return {
-                    'id': todo.id,
-                    'text': todo.text,
-                    'tags': todo.tags or [],
-                    'is_active': bool(todo.is_active),
-                    'created_at': todo.created_at,
-                    'completed_at': todo.completed_at
+                    "id": todo.id,
+                    "text": todo.text,
+                    "tags": todo.tags or [],
+                    "is_active": bool(todo.is_active),
+                    "created_at": todo.created_at,
+                    "completed_at": todo.completed_at,
                 }
 
             return None
 
-    def update_local_todo(self, todo_id: int, text: Optional[str] = None,
-                         tags: Optional[List[str]] = None):
+    def update_local_todo(
+        self, todo_id: int, text: Optional[str] = None, tags: Optional[List[str]] = None
+    ):
         """Update a local TODO.
 
         Args:
@@ -651,25 +682,24 @@ class Database:
         with self.get_session() as session:
             stmt = (
                 select(CalendarEvent)
-                .where(and_(
-                    CalendarEvent.start_time <= timestamp,
-                    CalendarEvent.end_time >= timestamp
-                ))
+                .where(
+                    and_(CalendarEvent.start_time <= timestamp, CalendarEvent.end_time >= timestamp)
+                )
                 .order_by(CalendarEvent.start_time)
             )
             event = session.execute(stmt).scalars().first()
 
             if event:
                 return {
-                    'id': event.id,
-                    'summary': event.summary,
-                    'description': event.description,
-                    'start_time': event.start_time,
-                    'end_time': event.end_time,
-                    'location': event.location,
-                    'calendar_id': event.calendar_id,
-                    'attendees': event.attendees or [],
-                    'url': event.url
+                    "id": event.id,
+                    "summary": event.summary,
+                    "description": event.description,
+                    "start_time": event.start_time,
+                    "end_time": event.end_time,
+                    "location": event.location,
+                    "calendar_id": event.calendar_id,
+                    "attendees": event.attendees or [],
+                    "url": event.url,
                 }
 
             return None
@@ -682,35 +712,35 @@ class Database:
             task: Dictionary with task data
         """
         with self.get_session() as session:
-            existing = session.get(GitHubTask, task['id'])
+            existing = session.get(GitHubTask, task["id"])
 
             if existing:
                 # Update existing task
-                existing.title = task.get('title', existing.title)
-                existing.body = task.get('body')
-                existing.state = task.get('state', existing.state)
-                existing.project_name = task.get('project_name')
-                existing.iteration = task.get('iteration')
-                existing.assignees = task.get('assignees', [])
-                existing.labels = task.get('labels', [])
-                existing.url = task.get('url')
-                existing.created_at = task.get('created_at')
-                existing.updated_at = task.get('updated_at')
+                existing.title = task.get("title", existing.title)
+                existing.body = task.get("body")
+                existing.state = task.get("state", existing.state)
+                existing.project_name = task.get("project_name")
+                existing.iteration = task.get("iteration")
+                existing.assignees = task.get("assignees", [])
+                existing.labels = task.get("labels", [])
+                existing.url = task.get("url")
+                existing.created_at = task.get("created_at")
+                existing.updated_at = task.get("updated_at")
                 existing.synced_at = int(datetime.now().timestamp())
             else:
                 # Create new task
                 new_task = GitHubTask(
-                    id=task['id'],
-                    title=task['title'],
-                    body=task.get('body'),
-                    state=task['state'],
-                    project_name=task.get('project_name'),
-                    iteration=task.get('iteration'),
-                    assignees=task.get('assignees', []),
-                    labels=task.get('labels', []),
-                    url=task.get('url'),
-                    created_at=task.get('created_at'),
-                    updated_at=task.get('updated_at')
+                    id=task["id"],
+                    title=task["title"],
+                    body=task.get("body"),
+                    state=task["state"],
+                    project_name=task.get("project_name"),
+                    iteration=task.get("iteration"),
+                    assignees=task.get("assignees", []),
+                    labels=task.get("labels", []),
+                    url=task.get("url"),
+                    created_at=task.get("created_at"),
+                    updated_at=task.get("updated_at"),
                 )
                 session.add(new_task)
 
@@ -735,18 +765,18 @@ class Database:
 
             return [
                 {
-                    'id': t.id,
-                    'title': t.title,
-                    'body': t.body,
-                    'state': t.state,
-                    'project_name': t.project_name,
-                    'iteration': t.iteration,
-                    'assignees': t.assignees or [],
-                    'labels': t.labels or [],
-                    'url': t.url,
-                    'created_at': t.created_at,
-                    'updated_at': t.updated_at,
-                    'synced_at': t.synced_at
+                    "id": t.id,
+                    "title": t.title,
+                    "body": t.body,
+                    "state": t.state,
+                    "project_name": t.project_name,
+                    "iteration": t.iteration,
+                    "assignees": t.assignees or [],
+                    "labels": t.labels or [],
+                    "url": t.url,
+                    "created_at": t.created_at,
+                    "updated_at": t.updated_at,
+                    "synced_at": t.synced_at,
                 }
                 for t in tasks
             ]
@@ -767,18 +797,18 @@ class Database:
                 return None
 
             return {
-                'id': task.id,
-                'title': task.title,
-                'body': task.body,
-                'state': task.state,
-                'project_name': task.project_name,
-                'iteration': task.iteration,
-                'assignees': task.assignees or [],
-                'labels': task.labels or [],
-                'url': task.url,
-                'created_at': task.created_at,
-                'updated_at': task.updated_at,
-                'synced_at': task.synced_at
+                "id": task.id,
+                "title": task.title,
+                "body": task.body,
+                "state": task.state,
+                "project_name": task.project_name,
+                "iteration": task.iteration,
+                "assignees": task.assignees or [],
+                "labels": task.labels or [],
+                "url": task.url,
+                "created_at": task.created_at,
+                "updated_at": task.updated_at,
+                "synced_at": task.synced_at,
             }
 
     # Calendar events operations
@@ -789,31 +819,31 @@ class Database:
             event: Dictionary with event data
         """
         with self.get_session() as session:
-            existing = session.get(CalendarEvent, event['id'])
+            existing = session.get(CalendarEvent, event["id"])
 
             if existing:
                 # Update existing event
-                existing.summary = event.get('summary', existing.summary)
-                existing.description = event.get('description')
-                existing.start_time = event.get('start_time', existing.start_time)
-                existing.end_time = event.get('end_time', existing.end_time)
-                existing.location = event.get('location')
-                existing.calendar_id = event.get('calendar_id', existing.calendar_id)
-                existing.attendees = event.get('attendees', [])
-                existing.url = event.get('url')
+                existing.summary = event.get("summary", existing.summary)
+                existing.description = event.get("description")
+                existing.start_time = event.get("start_time", existing.start_time)
+                existing.end_time = event.get("end_time", existing.end_time)
+                existing.location = event.get("location")
+                existing.calendar_id = event.get("calendar_id", existing.calendar_id)
+                existing.attendees = event.get("attendees", [])
+                existing.url = event.get("url")
                 existing.synced_at = int(datetime.now().timestamp())
             else:
                 # Create new event
                 new_event = CalendarEvent(
-                    id=event['id'],
-                    summary=event['summary'],
-                    description=event.get('description'),
-                    start_time=event['start_time'],
-                    end_time=event['end_time'],
-                    location=event.get('location'),
-                    calendar_id=event['calendar_id'],
-                    attendees=event.get('attendees', []),
-                    url=event.get('url')
+                    id=event["id"],
+                    summary=event["summary"],
+                    description=event.get("description"),
+                    start_time=event["start_time"],
+                    end_time=event["end_time"],
+                    location=event.get("location"),
+                    calendar_id=event["calendar_id"],
+                    attendees=event.get("attendees", []),
+                    url=event.get("url"),
                 )
                 session.add(new_event)
 
@@ -832,26 +862,25 @@ class Database:
         with self.get_session() as session:
             stmt = (
                 select(CalendarEvent)
-                .where(and_(
-                    CalendarEvent.start_time <= end_time,
-                    CalendarEvent.end_time >= start_time
-                ))
+                .where(
+                    and_(CalendarEvent.start_time <= end_time, CalendarEvent.end_time >= start_time)
+                )
                 .order_by(CalendarEvent.start_time)
             )
             events = session.execute(stmt).scalars().all()
 
             return [
                 {
-                    'id': e.id,
-                    'summary': e.summary,
-                    'description': e.description,
-                    'start_time': e.start_time,
-                    'end_time': e.end_time,
-                    'location': e.location,
-                    'calendar_id': e.calendar_id,
-                    'attendees': e.attendees or [],
-                    'url': e.url,
-                    'synced_at': e.synced_at
+                    "id": e.id,
+                    "summary": e.summary,
+                    "description": e.description,
+                    "start_time": e.start_time,
+                    "end_time": e.end_time,
+                    "location": e.location,
+                    "calendar_id": e.calendar_id,
+                    "attendees": e.attendees or [],
+                    "url": e.url,
+                    "synced_at": e.synced_at,
                 }
                 for e in events
             ]
@@ -872,22 +901,26 @@ class Database:
                 return None
 
             return {
-                'id': event.id,
-                'summary': event.summary,
-                'description': event.description,
-                'start_time': event.start_time,
-                'end_time': event.end_time,
-                'location': event.location,
-                'calendar_id': event.calendar_id,
-                'attendees': event.attendees or [],
-                'url': event.url,
-                'synced_at': event.synced_at
+                "id": event.id,
+                "summary": event.summary,
+                "description": event.description,
+                "start_time": event.start_time,
+                "end_time": event.end_time,
+                "location": event.location,
+                "calendar_id": event.calendar_id,
+                "attendees": event.attendees or [],
+                "url": event.url,
+                "synced_at": event.synced_at,
             }
 
     # Sync metadata operations
-    def update_sync_metadata(self, service: str, success: bool = True,
-                            error_message: Optional[str] = None,
-                            sync_token: Optional[str] = None):
+    def update_sync_metadata(
+        self,
+        service: str,
+        success: bool = True,
+        error_message: Optional[str] = None,
+        sync_token: Optional[str] = None,
+    ):
         """Update sync metadata for a service.
 
         Args:
@@ -915,7 +948,7 @@ class Database:
                     last_sync=now,
                     last_success=now if success else None,
                     error_message=error_message,
-                    sync_token=sync_token
+                    sync_token=sync_token,
                 )
                 session.add(metadata)
 
@@ -935,11 +968,11 @@ class Database:
 
             if metadata:
                 return {
-                    'service': metadata.service,
-                    'last_sync': metadata.last_sync,
-                    'last_success': metadata.last_success,
-                    'error_message': metadata.error_message,
-                    'sync_token': metadata.sync_token
+                    "service": metadata.service,
+                    "last_sync": metadata.last_sync,
+                    "last_success": metadata.last_success,
+                    "error_message": metadata.error_message,
+                    "sync_token": metadata.sync_token,
                 }
             return None
 
@@ -984,13 +1017,13 @@ class Database:
     def _migrate_plaintext_credentials(self):
         """Migrate plaintext credentials from database to secure storage."""
         # Check for plaintext GitHub token
-        plaintext_token = self.get_config('github_token')
+        plaintext_token = self.get_config("github_token")
         if plaintext_token and isinstance(plaintext_token, str):
             # Check if it's not already migrated (migration marker would be a dict)
-            if not plaintext_token.startswith('_migrated_'):
-                if self._credentials.migrate_plaintext_credential('github_token', plaintext_token):
+            if not plaintext_token.startswith("_migrated_"):
+                if self._credentials.migrate_plaintext_credential("github_token", plaintext_token):
                     # Mark as migrated in config
-                    self.set_config('github_token', '_migrated_to_secure_storage')
+                    self.set_config("github_token", "_migrated_to_secure_storage")
                     logger.info("Migrated GitHub token to secure storage")
 
     def set_github_token(self, token: str):
@@ -999,9 +1032,9 @@ class Database:
         Args:
             token: GitHub personal access token
         """
-        self._credentials.set_credential('github_token', token)
+        self._credentials.set_credential("github_token", token)
         # Update config to mark as using secure storage
-        self.set_config('github_token', '_migrated_to_secure_storage')
+        self.set_config("github_token", "_migrated_to_secure_storage")
 
     def get_github_token(self) -> Optional[str]:
         """Retrieve GitHub token from secure storage.
@@ -1010,13 +1043,13 @@ class Database:
             GitHub token or None if not set
         """
         # Try secure storage first
-        token = self._credentials.get_credential('github_token')
+        token = self._credentials.get_credential("github_token")
         if token:
             return token
 
         # Check if there's a plaintext token (backward compatibility)
-        config_value = self.get_config('github_token')
-        if config_value and config_value != '_migrated_to_secure_storage':
+        config_value = self.get_config("github_token")
+        if config_value and config_value != "_migrated_to_secure_storage":
             # Found plaintext token, migrate it
             self.set_github_token(config_value)
             return config_value
@@ -1025,8 +1058,8 @@ class Database:
 
     def delete_github_token(self):
         """Delete GitHub token from secure storage."""
-        self._credentials.delete_credential('github_token')
-        self.set_config('github_token', None)
+        self._credentials.delete_credential("github_token")
+        self.set_config("github_token", None)
 
     def get_credential_storage_info(self) -> str:
         """Get information about credential storage backend.
@@ -1051,7 +1084,7 @@ class Database:
             return "(Ping dismissed)"
 
         # Meeting
-        if ping.is_meeting or ping.todo_type == 'meeting':
+        if ping.is_meeting or ping.todo_type == "meeting":
             # Try to get event details
             if ping.event_id:
                 event = session.get(CalendarEvent, ping.event_id)
@@ -1060,14 +1093,14 @@ class Database:
             return "Meeting"
 
         # GitHub task
-        if ping.todo_type == 'github':
+        if ping.todo_type == "github":
             task = session.get(GitHubTask, ping.todo_id)
             if task:
                 return f"GitHub: {task.title}"
             return f"GitHub Task (ID: {ping.todo_id})"
 
         # Local TODO
-        if ping.todo_type == 'local':
+        if ping.todo_type == "local":
             try:
                 todo_id_int = int(ping.todo_id)
                 todo = session.get(LocalTODO, todo_id_int)

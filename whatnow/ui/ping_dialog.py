@@ -1,10 +1,12 @@
 """Ping dialog for activity tracking."""
 
 import gi
-gi.require_version('Gtk', '3.0')
-from gi.repository import Gtk, GLib
+
+gi.require_version("Gtk", "3.0")
 from datetime import datetime
-from typing import Optional, Callable, List, Dict, Any, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
+
+from gi.repository import GLib, Gtk
 
 
 class NewTODODialog(Gtk.Dialog):
@@ -16,12 +18,7 @@ class NewTODODialog(Gtk.Dialog):
         Args:
             parent: Parent window
         """
-        super().__init__(
-            title="New TODO",
-            parent=parent,
-            modal=True,
-            destroy_with_parent=True
-        )
+        super().__init__(title="New TODO", parent=parent, modal=True, destroy_with_parent=True)
 
         self.set_default_size(400, 150)
         self.set_border_width(10)
@@ -74,11 +71,15 @@ class NewTODODialog(Gtk.Dialog):
 class PingDialog(Gtk.Dialog):
     """Dialog that appears when a ping is triggered."""
 
-    def __init__(self, parent: Optional[Gtk.Window], timestamp: int,
-                 github_tasks: List[Dict[str, Any]],
-                 local_todos: List[Dict[str, Any]],
-                 db,
-                 callback: Optional[Callable[[int, str, str, list, str], None]] = None):
+    def __init__(
+        self,
+        parent: Optional[Gtk.Window],
+        timestamp: int,
+        github_tasks: List[Dict[str, Any]],
+        local_todos: List[Dict[str, Any]],
+        db,
+        callback: Optional[Callable[[int, str, str, list, str], None]] = None,
+    ):
         """Initialize the ping dialog.
 
         Args:
@@ -93,7 +94,7 @@ class PingDialog(Gtk.Dialog):
             title="WhatNow - What are you working on?",
             parent=parent,
             modal=True,
-            destroy_with_parent=True
+            destroy_with_parent=True,
         )
 
         self.timestamp = timestamp
@@ -148,13 +149,10 @@ class PingDialog(Gtk.Dialog):
             self.todo_box.pack_start(gh_label, False, False, 5)
 
             for task in github_tasks:
-                radio = Gtk.RadioButton.new_with_label_from_widget(
-                    self.radio_group,
-                    task['title']
-                )
+                radio = Gtk.RadioButton.new_with_label_from_widget(self.radio_group, task["title"])
                 if self.radio_group is None:
                     self.radio_group = radio
-                radio.connect("toggled", self._on_todo_selected, task['id'], 'github')
+                radio.connect("toggled", self._on_todo_selected, task["id"], "github")
                 self.todo_box.pack_start(radio, False, False, 0)
 
         # Add local TODOs
@@ -164,13 +162,10 @@ class PingDialog(Gtk.Dialog):
             self.todo_box.pack_start(local_label, False, False, 5)
 
             for todo in local_todos:
-                radio = Gtk.RadioButton.new_with_label_from_widget(
-                    self.radio_group,
-                    todo['text']
-                )
+                radio = Gtk.RadioButton.new_with_label_from_widget(self.radio_group, todo["text"])
                 if self.radio_group is None:
                     self.radio_group = radio
-                radio.connect("toggled", self._on_todo_selected, str(todo['id']), 'local')
+                radio.connect("toggled", self._on_todo_selected, str(todo["id"]), "local")
                 self.todo_box.pack_start(radio, False, False, 0)
 
         # New TODO button
@@ -241,14 +236,14 @@ class PingDialog(Gtk.Dialog):
 
         # Get tags for this TODO
         todo_tags = []
-        if todo_type == 'github':
-            task = next((t for t in self.github_tasks if t['id'] == todo_id), None)
+        if todo_type == "github":
+            task = next((t for t in self.github_tasks if t["id"] == todo_id), None)
             if task:
-                todo_tags = task.get('labels', [])
-        elif todo_type == 'local':
-            todo = next((t for t in self.local_todos if str(t['id']) == todo_id), None)
+                todo_tags = task.get("labels", [])
+        elif todo_type == "local":
+            todo = next((t for t in self.local_todos if str(t["id"]) == todo_id), None)
             if todo:
-                todo_tags = todo.get('tags', [])
+                todo_tags = todo.get("tags", [])
 
         # Add checkboxes for each tag
         if todo_tags:
@@ -273,20 +268,12 @@ class PingDialog(Gtk.Dialog):
                 todo_id = self.db.add_local_todo(text, tags)
 
                 # Add to local_todos list
-                new_todo = {
-                    'id': todo_id,
-                    'text': text,
-                    'tags': tags,
-                    'is_active': True
-                }
+                new_todo = {"id": todo_id, "text": text, "tags": tags, "is_active": True}
                 self.local_todos.append(new_todo)
 
                 # Add radio button for new TODO
-                radio = Gtk.RadioButton.new_with_label_from_widget(
-                    self.radio_group,
-                    text
-                )
-                radio.connect("toggled", self._on_todo_selected, str(todo_id), 'local')
+                radio = Gtk.RadioButton.new_with_label_from_widget(self.radio_group, text)
+                radio.connect("toggled", self._on_todo_selected, str(todo_id), "local")
                 self.todo_box.pack_start(radio, False, False, 0)
                 radio.show()
 
@@ -323,11 +310,16 @@ class PingDialog(Gtk.Dialog):
         notes = notes_buffer.get_text(start_iter, end_iter, True).strip()
 
         # Update TODO tags in database if local TODO
-        if self.selected_todo_type == 'local' and tags:
+        if self.selected_todo_type == "local" and tags:
             self.db.update_local_todo(int(self.selected_todo_id), tags=tags)
 
-        return (self.timestamp, self.selected_todo_id, self.selected_todo_type,
-                tags, notes if notes else None)
+        return (
+            self.timestamp,
+            self.selected_todo_id,
+            self.selected_todo_type,
+            tags,
+            notes if notes else None,
+        )
 
     def run_and_process(self) -> bool:
         """Run the dialog and process the response.
@@ -348,11 +340,14 @@ class PingDialog(Gtk.Dialog):
         return False
 
 
-def show_ping_dialog(parent: Optional[Gtk.Window], timestamp: int,
-                     github_tasks: List[Dict[str, Any]],
-                     local_todos: List[Dict[str, Any]],
-                     db,
-                     callback: Optional[Callable[[int, str, str, list, str], None]] = None) -> bool:
+def show_ping_dialog(
+    parent: Optional[Gtk.Window],
+    timestamp: int,
+    github_tasks: List[Dict[str, Any]],
+    local_todos: List[Dict[str, Any]],
+    db,
+    callback: Optional[Callable[[int, str, str, list, str], None]] = None,
+) -> bool:
     """Show a ping dialog and return whether activity was logged.
 
     Args:

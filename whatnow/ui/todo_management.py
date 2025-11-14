@@ -1,10 +1,12 @@
 """Local TODO management UI."""
 
 import gi
-gi.require_version('Gtk', '3.0')
-from gi.repository import Gtk, Pango
+
+gi.require_version("Gtk", "3.0")
 from datetime import datetime
-from typing import Optional, Callable
+from typing import Callable, Optional
+
+from gi.repository import Gtk, Pango
 
 
 class TodoManagementWidget(Gtk.Box):
@@ -141,27 +143,21 @@ class TodoManagementWidget(Gtk.Box):
             todos = self.db.get_local_todos(active_only=True)
         elif filter_mode == 1:  # Completed
             todos = self.db.get_local_todos(active_only=False)
-            todos = [t for t in todos if not t['is_active']]
+            todos = [t for t in todos if not t["is_active"]]
         else:  # All
             todos = self.db.get_local_todos(active_only=False)
 
         self.store.clear()
 
         for todo in todos:
-            created_dt = datetime.fromtimestamp(todo['created_at'])
-            created_str = created_dt.strftime('%Y-%m-%d %H:%M')
-            tags_str = ', '.join(todo.get('tags', []))
+            created_dt = datetime.fromtimestamp(todo["created_at"])
+            created_str = created_dt.strftime("%Y-%m-%d %H:%M")
+            tags_str = ", ".join(todo.get("tags", []))
 
-            self.store.append([
-                todo['id'],
-                todo['text'],
-                tags_str,
-                todo['is_active'],
-                created_str
-            ])
+            self.store.append([todo["id"], todo["text"], tags_str, todo["is_active"], created_str])
 
         # Update info label
-        active_count = sum(1 for t in todos if t['is_active'])
+        active_count = sum(1 for t in todos if t["is_active"])
         completed_count = len(todos) - active_count
         self.info_label.set_markup(
             f"<small>Showing {len(todos)} TODOs "
@@ -240,10 +236,10 @@ class TodoManagementWidget(Gtk.Box):
                 flags=Gtk.DialogFlags.MODAL,
                 message_type=Gtk.MessageType.QUESTION,
                 buttons=Gtk.ButtonsType.YES_NO,
-                text="Mark TODO as Complete?"
+                text="Mark TODO as Complete?",
             )
             dialog.format_secondary_text(
-                f"Are you sure you want to mark this TODO as complete?\n\n\"{todo_text}\"\n\n"
+                f'Are you sure you want to mark this TODO as complete?\n\n"{todo_text}"\n\n'
                 "You can reactivate it later if needed."
             )
             response = dialog.run()
@@ -278,12 +274,7 @@ class AddTodoDialog(Gtk.Dialog):
         Args:
             parent: Parent window
         """
-        super().__init__(
-            title="Add TODO",
-            parent=parent,
-            modal=True,
-            destroy_with_parent=True
-        )
+        super().__init__(title="Add TODO", parent=parent, modal=True, destroy_with_parent=True)
 
         self.set_default_size(500, 200)
         self.set_border_width(10)
@@ -343,12 +334,7 @@ class EditTodoDialog(Gtk.Dialog):
             parent: Parent window
             todo: TODO dictionary
         """
-        super().__init__(
-            title="Edit TODO",
-            parent=parent,
-            modal=True,
-            destroy_with_parent=True
-        )
+        super().__init__(title="Edit TODO", parent=parent, modal=True, destroy_with_parent=True)
 
         self.todo = todo
 
@@ -369,7 +355,7 @@ class EditTodoDialog(Gtk.Dialog):
         content_area.pack_start(label, False, False, 0)
 
         self.text_entry = Gtk.Entry()
-        self.text_entry.set_text(todo['text'])
+        self.text_entry.set_text(todo["text"])
         self.text_entry.set_activates_default(True)
         content_area.pack_start(self.text_entry, False, False, 0)
 
@@ -378,7 +364,7 @@ class EditTodoDialog(Gtk.Dialog):
         content_area.pack_start(tags_label, False, False, 0)
 
         self.tags_entry = Gtk.Entry()
-        tags_text = ' '.join(todo.get('tags', []))
+        tags_text = " ".join(todo.get("tags", []))
         self.tags_entry.set_text(tags_text)
         content_area.pack_start(self.tags_entry, False, False, 0)
 

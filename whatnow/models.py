@@ -2,32 +2,39 @@
 
 from datetime import datetime
 from typing import List, Optional
-from sqlalchemy import String, Integer, Text, JSON, Index
+
+from sqlalchemy import JSON, Index, Integer, String, Text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy.sql import func
 
 
 class Base(DeclarativeBase):
     """Base class for all models."""
+
     pass
 
 
 class Ping(Base):
     """TagTime activity ping."""
+
     __tablename__ = "pings"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     timestamp: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
     todo_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    todo_type: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)  # 'github', 'local', 'meeting'
+    todo_type: Mapped[Optional[str]] = mapped_column(
+        String(50), nullable=True
+    )  # 'github', 'local', 'meeting'
     tags: Mapped[Optional[List[str]]] = mapped_column(JSON, nullable=True)
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    event_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)  # Calendar event ID if meeting
-    is_meeting: Mapped[bool] = mapped_column(Integer, nullable=False, default=0)  # SQLite uses 0/1 for bool
+    event_id: Mapped[Optional[str]] = mapped_column(
+        String(255), nullable=True
+    )  # Calendar event ID if meeting
+    is_meeting: Mapped[bool] = mapped_column(
+        Integer, nullable=False, default=0
+    )  # SQLite uses 0/1 for bool
     created_at: Mapped[int] = mapped_column(
-        Integer,
-        nullable=False,
-        default=lambda: int(datetime.now().timestamp())
+        Integer, nullable=False, default=lambda: int(datetime.now().timestamp())
     )
 
     def __repr__(self) -> str:
@@ -36,6 +43,7 @@ class Ping(Base):
 
 class GitHubTask(Base):
     """GitHub Projects task/issue."""
+
     __tablename__ = "github_tasks"
 
     id: Mapped[str] = mapped_column(String(255), primary_key=True)
@@ -50,9 +58,7 @@ class GitHubTask(Base):
     created_at: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     updated_at: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     synced_at: Mapped[int] = mapped_column(
-        Integer,
-        nullable=False,
-        default=lambda: int(datetime.now().timestamp())
+        Integer, nullable=False, default=lambda: int(datetime.now().timestamp())
     )
 
     def __repr__(self) -> str:
@@ -61,6 +67,7 @@ class GitHubTask(Base):
 
 class CalendarEvent(Base):
     """Google Calendar event."""
+
     __tablename__ = "calendar_events"
 
     id: Mapped[str] = mapped_column(String(255), primary_key=True)
@@ -73,9 +80,7 @@ class CalendarEvent(Base):
     attendees: Mapped[Optional[List[str]]] = mapped_column(JSON, nullable=True)
     url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     synced_at: Mapped[int] = mapped_column(
-        Integer,
-        nullable=False,
-        default=lambda: int(datetime.now().timestamp())
+        Integer, nullable=False, default=lambda: int(datetime.now().timestamp())
     )
 
     def __repr__(self) -> str:
@@ -84,6 +89,7 @@ class CalendarEvent(Base):
 
 class SyncMetadata(Base):
     """Sync metadata for external services."""
+
     __tablename__ = "sync_metadata"
 
     service: Mapped[str] = mapped_column(String(50), primary_key=True)
@@ -98,6 +104,7 @@ class SyncMetadata(Base):
 
 class Config(Base):
     """Application configuration."""
+
     __tablename__ = "config"
 
     key: Mapped[str] = mapped_column(String(255), primary_key=True)
@@ -106,7 +113,7 @@ class Config(Base):
         Integer,
         nullable=False,
         default=lambda: int(datetime.now().timestamp()),
-        onupdate=lambda: int(datetime.now().timestamp())
+        onupdate=lambda: int(datetime.now().timestamp()),
     )
 
     def __repr__(self) -> str:
@@ -115,6 +122,7 @@ class Config(Base):
 
 class WorkSession(Base):
     """Work session tracking."""
+
     __tablename__ = "work_sessions"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -128,16 +136,17 @@ class WorkSession(Base):
 
 class LocalTODO(Base):
     """Local TODO item."""
+
     __tablename__ = "local_todos"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     text: Mapped[str] = mapped_column(Text, nullable=False)
     tags: Mapped[Optional[List[str]]] = mapped_column(JSON, nullable=True)
-    is_active: Mapped[bool] = mapped_column(Integer, nullable=False, default=1)  # SQLite uses 0/1 for bool
+    is_active: Mapped[bool] = mapped_column(
+        Integer, nullable=False, default=1
+    )  # SQLite uses 0/1 for bool
     created_at: Mapped[int] = mapped_column(
-        Integer,
-        nullable=False,
-        default=lambda: int(datetime.now().timestamp())
+        Integer, nullable=False, default=lambda: int(datetime.now().timestamp())
     )
     completed_at: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
 

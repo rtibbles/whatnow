@@ -21,8 +21,8 @@ GOOGLE_CLIENT_ID = "123456789-abcdefghijklmnop.apps.googleusercontent.com"
 GOOGLE_CLIENT_SECRET = "GOCSPX-example_secret_key_here"
 
 # OAuth 2.0 Configuration
-SCOPES = ['https://www.googleapis.com/auth/calendar.readonly']
-REDIRECT_URI = 'http://localhost:8080/'
+SCOPES = ["https://www.googleapis.com/auth/calendar.readonly"]
+REDIRECT_URI = "http://localhost:8080/"
 
 # For development: you can override these with your own test credentials
 # by creating 'gcal_credentials_local.py' (gitignored) with:

@@ -1,7 +1,9 @@
 """Unit tests for database operations."""
 
-import pytest
 import time
+
+import pytest
+
 from whatnow.database import Database
 
 
@@ -24,9 +26,14 @@ class TestDatabaseInitialization:
         tables = inspector.get_table_names()
 
         expected_tables = [
-            'pings', 'work_sessions', 'local_todos',
-            'github_tasks', 'calendar_events',
-            'sync_metadata', 'config', 'alembic_version'
+            "pings",
+            "work_sessions",
+            "local_todos",
+            "github_tasks",
+            "calendar_events",
+            "sync_metadata",
+            "config",
+            "alembic_version",
         ]
 
         for table in expected_tables:
@@ -48,19 +55,19 @@ class TestPingOperations:
         # Add some pings
         db.add_ping(**sample_ping_data)
 
-        sample_ping_data['timestamp'] += 100
+        sample_ping_data["timestamp"] += 100
         db.add_ping(**sample_ping_data)
 
         # Retrieve pings
         pings = db.get_pings(limit=10)
 
         assert len(pings) == 2
-        assert all('id' in p for p in pings)
-        assert all('timestamp' in p for p in pings)
-        assert all('activity' in p for p in pings)  # Should have resolved activity
+        assert all("id" in p for p in pings)
+        assert all("timestamp" in p for p in pings)
+        assert all("activity" in p for p in pings)  # Should have resolved activity
 
         # Should be in descending order by timestamp
-        assert pings[0]['timestamp'] >= pings[1]['timestamp']
+        assert pings[0]["timestamp"] >= pings[1]["timestamp"]
 
     def test_get_pings_with_activity_resolution(self, db, sample_local_todo):
         """Test that get_pings resolves activity descriptions."""
@@ -68,19 +75,15 @@ class TestPingOperations:
         todo_id = db.add_local_todo(**sample_local_todo)
 
         # Add ping for this TODO
-        ping_id = db.add_ping(
-            timestamp=int(time.time()),
-            todo_id=str(todo_id),
-            todo_type='local'
-        )
+        ping_id = db.add_ping(timestamp=int(time.time()), todo_id=str(todo_id), todo_type="local")
 
         # Get pings
         pings = db.get_pings()
 
         assert len(pings) == 1
         ping = pings[0]
-        assert 'activity' in ping
-        assert sample_local_todo['text'] in ping['activity']
+        assert "activity" in ping
+        assert sample_local_todo["text"] in ping["activity"]
 
     def test_get_pings_by_date_range(self, db):
         """Test retrieving pings within date range."""
@@ -89,19 +92,19 @@ class TestPingOperations:
         timestamp2 = timestamp1 + 3600  # 1 hour later
         timestamp3 = timestamp1 + 7200  # 2 hours later
 
-        db.add_ping(timestamp=timestamp1, todo_type='local')
-        db.add_ping(timestamp=timestamp2, todo_type='local')
-        db.add_ping(timestamp=timestamp3, todo_type='local')
+        db.add_ping(timestamp=timestamp1, todo_type="local")
+        db.add_ping(timestamp=timestamp2, todo_type="local")
+        db.add_ping(timestamp=timestamp3, todo_type="local")
 
         # Query middle range
         pings = db.get_pings_by_date_range(
             start_time=timestamp1 + 1800,  # 30 min after first
-            end_time=timestamp3 - 1800      # 30 min before last
+            end_time=timestamp3 - 1800,  # 30 min before last
         )
 
         # Should only get the middle ping
         assert len(pings) == 1
-        assert pings[0]['timestamp'] == timestamp2
+        assert pings[0]["timestamp"] == timestamp2
 
     def test_dismissed_ping_activity(self, db):
         """Test activity resolution for dismissed pings."""
@@ -109,7 +112,7 @@ class TestPingOperations:
 
         pings = db.get_pings()
         assert len(pings) == 1
-        assert pings[0]['activity'] == "(Ping dismissed)"
+        assert pings[0]["activity"] == "(Ping dismissed)"
 
 
 class TestWorkSessionOperations:
@@ -184,9 +187,9 @@ class TestLocalTODOOperations:
         todos = db.get_local_todos()
 
         assert len(todos) == 1
-        assert todos[0]['text'] == sample_local_todo['text']
-        assert todos[0]['tags'] == sample_local_todo['tags']
-        assert todos[0]['is_active']
+        assert todos[0]["text"] == sample_local_todo["text"]
+        assert todos[0]["tags"] == sample_local_todo["tags"]
+        assert todos[0]["is_active"]
 
     def test_get_active_todos_only(self, db, sample_local_todo):
         """Test filtering active vs completed TODOs."""
@@ -195,15 +198,15 @@ class TestLocalTODOOperations:
 
         # Add completed TODO
         completed_todo = sample_local_todo.copy()
-        completed_todo['text'] = 'Completed task'
-        completed_todo['is_active'] = False
-        completed_todo['completed_at'] = int(time.time())
+        completed_todo["text"] = "Completed task"
+        completed_todo["is_active"] = False
+        completed_todo["completed_at"] = int(time.time())
         db.add_local_todo(**completed_todo)
 
         # Get only active
         active_todos = db.get_local_todos(active_only=True)
         assert len(active_todos) == 1
-        assert active_todos[0]['text'] == sample_local_todo['text']
+        assert active_todos[0]["text"] == sample_local_todo["text"]
 
         # Get all
         all_todos = db.get_local_todos(active_only=False)
@@ -214,16 +217,12 @@ class TestLocalTODOOperations:
         todo_id = db.add_local_todo(**sample_local_todo)
 
         # Update it
-        db.update_local_todo(
-            todo_id,
-            text='Updated text',
-            tags=['new-tag']
-        )
+        db.update_local_todo(todo_id, text="Updated text", tags=["new-tag"])
 
         todos = db.get_local_todos()
         assert len(todos) == 1
-        assert todos[0]['text'] == 'Updated text'
-        assert 'new-tag' in todos[0]['tags']
+        assert todos[0]["text"] == "Updated text"
+        assert "new-tag" in todos[0]["tags"]
 
     def test_complete_local_todo(self, db, sample_local_todo):
         """Test completing a local TODO."""
@@ -238,8 +237,8 @@ class TestLocalTODOOperations:
         # But should exist in all TODOs
         all_todos = db.get_local_todos(active_only=False)
         assert len(all_todos) == 1
-        assert not all_todos[0]['is_active']
-        assert all_todos[0]['completed_at'] is not None
+        assert not all_todos[0]["is_active"]
+        assert all_todos[0]["completed_at"] is not None
 
 
 class TestGitHubTaskOperations:
@@ -251,20 +250,20 @@ class TestGitHubTaskOperations:
 
         tasks = db.get_github_tasks()
         assert len(tasks) == 1
-        assert tasks[0]['id'] == sample_github_task['id']
-        assert tasks[0]['title'] == sample_github_task['title']
+        assert tasks[0]["id"] == sample_github_task["id"]
+        assert tasks[0]["title"] == sample_github_task["title"]
 
     def test_upsert_updates_existing(self, db, sample_github_task):
         """Test that upsert updates existing records."""
         db.upsert_github_task(sample_github_task)
 
         # Update the task
-        sample_github_task['title'] = 'Updated title'
+        sample_github_task["title"] = "Updated title"
         db.upsert_github_task(sample_github_task)
 
         tasks = db.get_github_tasks()
         assert len(tasks) == 1  # Still only one task
-        assert tasks[0]['title'] == 'Updated title'
+        assert tasks[0]["title"] == "Updated title"
 
     def test_get_github_tasks_filters_inactive(self, db, sample_github_task):
         """Test that only current iteration tasks are returned."""
@@ -273,8 +272,8 @@ class TestGitHubTaskOperations:
 
         # Add old task (different iteration)
         old_task = sample_github_task.copy()
-        old_task['id'] = 'old_task'
-        old_task['iteration_title'] = 'Old Sprint'
+        old_task["id"] = "old_task"
+        old_task["iteration_title"] = "Old Sprint"
         db.upsert_github_task(old_task)
 
         # Should get both when not filtering
@@ -290,25 +289,25 @@ class TestCalendarEventOperations:
         db.upsert_calendar_event(sample_calendar_event)
 
         # Get event by checking for event at that time
-        event = db.get_event_at_time(sample_calendar_event['start_time'] + 100)
+        event = db.get_event_at_time(sample_calendar_event["start_time"] + 100)
         assert event is not None
-        assert event['id'] == sample_calendar_event['id']
-        assert event['summary'] == sample_calendar_event['summary']
+        assert event["id"] == sample_calendar_event["id"]
+        assert event["summary"] == sample_calendar_event["summary"]
 
     def test_get_event_at_time(self, db, sample_calendar_event):
         """Test retrieving event at specific time."""
         db.upsert_calendar_event(sample_calendar_event)
 
         # Time during event
-        event = db.get_event_at_time(sample_calendar_event['start_time'] + 1800)
+        event = db.get_event_at_time(sample_calendar_event["start_time"] + 1800)
         assert event is not None
 
         # Time before event
-        event_before = db.get_event_at_time(sample_calendar_event['start_time'] - 100)
+        event_before = db.get_event_at_time(sample_calendar_event["start_time"] - 100)
         assert event_before is None
 
         # Time after event
-        event_after = db.get_event_at_time(sample_calendar_event['end_time'] + 100)
+        event_after = db.get_event_at_time(sample_calendar_event["end_time"] + 100)
         assert event_after is None
 
 
@@ -317,25 +316,21 @@ class TestConfigOperations:
 
     def test_set_and_get_config(self, db):
         """Test setting and getting configuration values."""
-        db.set_config('test_key', 'test_value')
-        value = db.get_config('test_key')
-        assert value == 'test_value'
+        db.set_config("test_key", "test_value")
+        value = db.get_config("test_key")
+        assert value == "test_value"
 
     def test_get_config_default(self, db):
         """Test getting non-existent config with default."""
-        value = db.get_config('nonexistent', 'default_value')
-        assert value == 'default_value'
+        value = db.get_config("nonexistent", "default_value")
+        assert value == "default_value"
 
     def test_config_with_json_values(self, db):
         """Test storing complex JSON values."""
-        complex_value = {
-            'list': [1, 2, 3],
-            'dict': {'nested': 'value'},
-            'bool': True
-        }
+        complex_value = {"list": [1, 2, 3], "dict": {"nested": "value"}, "bool": True}
 
-        db.set_config('complex', complex_value)
-        retrieved = db.get_config('complex')
+        db.set_config("complex", complex_value)
+        retrieved = db.get_config("complex")
 
         assert retrieved == complex_value
 

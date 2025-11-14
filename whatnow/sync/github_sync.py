@@ -1,9 +1,10 @@
 """GitHub Projects sync service using GraphQL API."""
 
-import requests
 import logging
 from datetime import datetime, timedelta
-from typing import Optional, Dict, Any, List
+from typing import Any, Dict, List, Optional
+
+import requests
 
 from ..utils.retry import retry_on_network_error
 
@@ -29,13 +30,12 @@ class GitHubSync:
         self.token = token
         self.org = org
         self.project_number = project_number
-        self.headers = {
-            "Authorization": f"Bearer {token}",
-            "Content-Type": "application/json"
-        }
+        self.headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
 
     @retry_on_network_error(max_retries=4, initial_delay=2.0)
-    def _execute_query(self, query: str, variables: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    def _execute_query(
+        self, query: str, variables: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
         """Execute a GraphQL query with automatic retry on network errors.
 
         Args:
@@ -53,10 +53,7 @@ class GitHubSync:
             payload["variables"] = variables
 
         response = requests.post(
-            self.GRAPHQL_ENDPOINT,
-            json=payload,
-            headers=self.headers,
-            timeout=30
+            self.GRAPHQL_ENDPOINT, json=payload, headers=self.headers, timeout=30
         )
 
         if response.status_code != 200:
@@ -104,10 +101,7 @@ class GitHubSync:
 
         user_query = query.replace("organization(login: $org)", "user(login: $org)")
 
-        variables = {
-            "org": self.org,
-            "projectNumber": self.project_number
-        }
+        variables = {"org": self.org, "projectNumber": self.project_number}
 
         try:
             data = self._execute_query(query, variables)
@@ -255,11 +249,7 @@ class GitHubSync:
             # Also support user projects
             user_query = query.replace("organization(login: $org)", "user(login: $org)")
 
-            variables = {
-                "org": self.org,
-                "projectNumber": self.project_number,
-                "cursor": None
-            }
+            variables = {"org": self.org, "projectNumber": self.project_number, "cursor": None}
 
             all_items = []
             has_next_page = True
@@ -318,7 +308,9 @@ class GitHubSync:
                 labels = [label["name"] for label in content.get("labels", {}).get("nodes", [])]
 
                 # Extract assignees
-                assignees = [assignee["login"] for assignee in content.get("assignees", {}).get("nodes", [])]
+                assignees = [
+                    assignee["login"] for assignee in content.get("assignees", {}).get("nodes", [])
+                ]
 
                 # Parse timestamps
                 created_at = self._parse_timestamp(content.get("createdAt"))
@@ -336,7 +328,7 @@ class GitHubSync:
                     "labels": labels,
                     "url": content["url"],
                     "created_at": created_at,
-                    "updated_at": updated_at
+                    "updated_at": updated_at,
                 }
 
                 self.db.upsert_github_task(task)
@@ -367,7 +359,7 @@ class GitHubSync:
             return None
 
         try:
-            dt = datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
+            dt = datetime.fromisoformat(timestamp_str.replace("Z", "+00:00"))
             return int(dt.timestamp())
         except Exception:
             return None

@@ -1,14 +1,12 @@
 """Alembic environment configuration for WhatNow database migrations."""
 
-from logging.config import fileConfig
 import os
 import sys
+from logging.config import fileConfig
 from pathlib import Path
 
-from sqlalchemy import engine_from_config
-from sqlalchemy import pool
-
 from alembic import context
+from sqlalchemy import engine_from_config, pool
 
 # Add parent directory to path so we can import whatnow modules
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -42,11 +40,10 @@ def get_url():
         return url
 
     # Use default location
-    data_dir = os.environ.get('XDG_DATA_HOME',
-                              os.path.expanduser('~/.local/share'))
-    app_dir = Path(data_dir) / 'whatnow'
+    data_dir = os.environ.get("XDG_DATA_HOME", os.path.expanduser("~/.local/share"))
+    app_dir = Path(data_dir) / "whatnow"
     app_dir.mkdir(parents=True, exist_ok=True)
-    db_path = app_dir / 'whatnow.db'
+    db_path = app_dir / "whatnow.db"
 
     return f"sqlite:///{db_path}"
 

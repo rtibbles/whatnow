@@ -1,10 +1,12 @@
 """Unit tests for Poisson scheduler."""
 
-import pytest
-import time
 import math
+import time
 from unittest.mock import Mock, patch
-from whatnow.poisson_scheduler import PoissonScheduler, PingStatistics
+
+import pytest
+
+from whatnow.poisson_scheduler import PingStatistics, PoissonScheduler
 
 
 class TestPoissonScheduler:
@@ -52,7 +54,9 @@ class TestPoissonScheduler:
     def test_start_stop(self):
         """Test starting and stopping the scheduler."""
         callback = Mock()
-        scheduler = PoissonScheduler(average_gap_minutes=0.01, ping_callback=callback)  # Very short interval for testing
+        scheduler = PoissonScheduler(
+            average_gap_minutes=0.01, ping_callback=callback
+        )  # Very short interval for testing
 
         # Start scheduler
         scheduler.start()
@@ -75,7 +79,9 @@ class TestPoissonScheduler:
     def test_ping_callback_invoked(self):
         """Test that ping callback is invoked when ping triggers."""
         callback = Mock()
-        scheduler = PoissonScheduler(average_gap_minutes=0.001, ping_callback=callback)  # Very short interval
+        scheduler = PoissonScheduler(
+            average_gap_minutes=0.001, ping_callback=callback
+        )  # Very short interval
 
         scheduler.start()
         time.sleep(0.2)  # Wait for at least one ping
@@ -138,7 +144,9 @@ class TestPoissonScheduler:
     def test_stop_event_interrupts_wait(self):
         """Test that stop event properly interrupts long waits."""
         callback = Mock()
-        scheduler = PoissonScheduler(average_gap_minutes=100.0, ping_callback=callback)  # Long interval
+        scheduler = PoissonScheduler(
+            average_gap_minutes=100.0, ping_callback=callback
+        )  # Long interval
 
         start_time = time.time()
         scheduler.start()

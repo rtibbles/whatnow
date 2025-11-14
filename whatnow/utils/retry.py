@@ -1,13 +1,13 @@
 """Utility functions for API retry logic with exponential backoff."""
 
-import time
 import logging
-from typing import Callable, TypeVar, Optional, Type
+import time
 from functools import wraps
+from typing import Callable, Optional, Type, TypeVar
 
 logger = logging.getLogger(__name__)
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 def retry_with_backoff(
@@ -16,7 +16,7 @@ def retry_with_backoff(
     backoff_factor: float = 2.0,
     max_delay: float = 60.0,
     exceptions: tuple = (Exception,),
-    on_retry: Optional[Callable[[Exception, int], None]] = None
+    on_retry: Optional[Callable[[Exception, int], None]] = None,
 ):
     """Decorator to retry a function with exponential backoff.
 
@@ -38,6 +38,7 @@ def retry_with_backoff(
             response.raise_for_status()
             return response.json()
     """
+
     def decorator(func: Callable[..., T]) -> Callable[..., T]:
         @wraps(func)
         def wrapper(*args, **kwargs) -> T:
@@ -84,6 +85,7 @@ def retry_with_backoff(
             raise RuntimeError(f"{func.__name__} failed unexpectedly")
 
         return wrapper
+
     return decorator
 
 
@@ -98,11 +100,11 @@ def is_retryable_error(exception: Exception) -> bool:
     """
     # Network errors are generally retryable
     retryable_types = (
-        'ConnectionError',
-        'Timeout',
-        'TimeoutError',
-        'HTTPError',
-        'RequestException'
+        "ConnectionError",
+        "Timeout",
+        "TimeoutError",
+        "HTTPError",
+        "RequestException",
     )
 
     exception_type = type(exception).__name__
@@ -112,7 +114,7 @@ def is_retryable_error(exception: Exception) -> bool:
         return True
 
     # Check for specific HTTP status codes (if it's an HTTP error)
-    if hasattr(exception, 'response') and hasattr(exception.response, 'status_code'):
+    if hasattr(exception, "response") and hasattr(exception.response, "status_code"):
         status_code = exception.response.status_code
         # Retry on server errors (5xx) and rate limiting (429)
         if status_code >= 500 or status_code == 429:
@@ -143,6 +145,7 @@ def retry_on_network_error(max_retries: int = 4, initial_delay: float = 2.0):
     # Import here to avoid circular dependencies
     try:
         import requests
+
         network_exceptions = (
             requests.exceptions.RequestException,
             ConnectionError,
@@ -153,7 +156,7 @@ def retry_on_network_error(max_retries: int = 4, initial_delay: float = 2.0):
 
     def on_retry_callback(exception: Exception, attempt: int):
         """Log retry attempts with additional context."""
-        if hasattr(exception, 'response'):
+        if hasattr(exception, "response"):
             logger.info(f"HTTP Status: {exception.response.status_code}")
 
     return retry_with_backoff(
@@ -162,21 +165,18 @@ def retry_on_network_error(max_retries: int = 4, initial_delay: float = 2.0):
         backoff_factor=2.0,  # Double delay each time (2s, 4s, 8s, 16s)
         max_delay=30.0,
         exceptions=network_exceptions,
-        on_retry=on_retry_callback
+        on_retry=on_retry_callback,
     )
 
 
 class RetryExhausted(Exception):
     """Exception raised when all retry attempts are exhausted."""
+
     pass
 
 
 def retry_with_exponential_backoff(
-    func: Callable[..., T],
-    max_attempts: int = 4,
-    base_delay: float = 2.0,
-    *args,
-    **kwargs
+    func: Callable[..., T], max_attempts: int = 4, base_delay: float = 2.0, *args, **kwargs
 ) -> T:
     """Execute a function with exponential backoff retry logic.
 
@@ -217,10 +217,9 @@ def retry_with_exponential_backoff(
                 break
 
             # Calculate delay (2s, 4s, 8s, 16s)
-            delay = base_delay * (2 ** attempt)
+            delay = base_delay * (2**attempt)
             logger.warning(
-                f"Attempt {attempt + 1}/{max_attempts} failed: {e}. "
-                f"Retrying in {delay}s..."
+                f"Attempt {attempt + 1}/{max_attempts} failed: {e}. " f"Retrying in {delay}s..."
             )
             time.sleep(delay)
 

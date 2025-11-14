@@ -1,10 +1,12 @@
 """User-friendly error dialog for displaying errors to users."""
 
 import gi
-gi.require_version('Gtk', '3.0')
-from gi.repository import Gtk
-from typing import Optional
+
+gi.require_version("Gtk", "3.0")
 import logging
+from typing import Optional
+
+from gi.repository import Gtk
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +28,7 @@ class ErrorDialog(Gtk.MessageDialog):
             destroy_with_parent=True,
             message_type=Gtk.MessageType.ERROR,
             buttons=Gtk.ButtonsType.OK,
-            text=self._get_error_title(error, context)
+            text=self._get_error_title(error, context),
         )
 
         self.set_title("Error")
@@ -58,13 +60,13 @@ class ErrorDialog(Gtk.MessageDialog):
         """
         error_type = type(error).__name__
 
-        if 'Network' in error_type or 'Connection' in error_type or 'Timeout' in error_type:
+        if "Network" in error_type or "Connection" in error_type or "Timeout" in error_type:
             return f"Network Error{' while ' + context if context else ''}"
-        elif 'Permission' in error_type or 'Forbidden' in error_type:
+        elif "Permission" in error_type or "Forbidden" in error_type:
             return f"Permission Error{' while ' + context if context else ''}"
-        elif 'NotFound' in error_type:
+        elif "NotFound" in error_type:
             return f"Not Found{' while ' + context if context else ''}"
-        elif 'Authentication' in error_type or 'Auth' in error_type:
+        elif "Authentication" in error_type or "Auth" in error_type:
             return f"Authentication Error{' while ' + context if context else ''}"
         else:
             return f"Error{' while ' + context if context else ''}"
@@ -83,7 +85,7 @@ class ErrorDialog(Gtk.MessageDialog):
         error_str = str(error)
 
         # Network errors
-        if 'Network' in error_type or 'Connection' in error_type or 'Timeout' in error_type:
+        if "Network" in error_type or "Connection" in error_type or "Timeout" in error_type:
             return (
                 "Could not connect to the server.\n\n"
                 "Possible solutions:\n"
@@ -93,8 +95,8 @@ class ErrorDialog(Gtk.MessageDialog):
             )
 
         # GitHub-specific errors
-        if 'github' in context.lower():
-            if '401' in error_str or 'Unauthorized' in error_str:
+        if "github" in context.lower():
+            if "401" in error_str or "Unauthorized" in error_str:
                 return (
                     "GitHub authentication failed.\n\n"
                     "Your personal access token may be invalid or expired.\n\n"
@@ -103,7 +105,7 @@ class ErrorDialog(Gtk.MessageDialog):
                     "• Enter a valid personal access token\n"
                     "• Ensure the token has 'repo' and 'project' scopes"
                 )
-            elif '403' in error_str or 'Forbidden' in error_str:
+            elif "403" in error_str or "Forbidden" in error_str:
                 return (
                     "Access to GitHub resource denied.\n\n"
                     "Possible causes:\n"
@@ -111,7 +113,7 @@ class ErrorDialog(Gtk.MessageDialog):
                     "• You don't have access to this organization/project\n"
                     "• Rate limit exceeded (wait a few minutes)"
                 )
-            elif '404' in error_str or 'Not Found' in error_str:
+            elif "404" in error_str or "Not Found" in error_str:
                 return (
                     "GitHub project not found.\n\n"
                     "Please check:\n"
@@ -121,8 +123,8 @@ class ErrorDialog(Gtk.MessageDialog):
                 )
 
         # Google Calendar-specific errors
-        if 'calendar' in context.lower() or 'gcal' in context.lower():
-            if 'credentials' in error_str.lower() or 'auth' in error_str.lower():
+        if "calendar" in context.lower() or "gcal" in context.lower():
+            if "credentials" in error_str.lower() or "auth" in error_str.lower():
                 return (
                     "Google Calendar authentication failed.\n\n"
                     "To fix this:\n"
@@ -130,7 +132,7 @@ class ErrorDialog(Gtk.MessageDialog):
                     "• Click 'Connect Google Calendar'\n"
                     "• Complete the authorization in your browser"
                 )
-            elif 'quota' in error_str.lower() or 'rate' in error_str.lower():
+            elif "quota" in error_str.lower() or "rate" in error_str.lower():
                 return (
                     "Google Calendar API quota exceeded.\n\n"
                     "The sync will automatically retry later.\n"
@@ -138,7 +140,7 @@ class ErrorDialog(Gtk.MessageDialog):
                 )
 
         # Database errors
-        if 'database' in context.lower() or 'sqlite' in error_type.lower():
+        if "database" in context.lower() or "sqlite" in error_type.lower():
             return (
                 "Database error occurred.\n\n"
                 "This may indicate:\n"
@@ -184,7 +186,7 @@ def show_simple_error(parent: Optional[Gtk.Window], title: str, message: str):
         destroy_with_parent=True,
         message_type=Gtk.MessageType.ERROR,
         buttons=Gtk.ButtonsType.OK,
-        text=title
+        text=title,
     )
     dialog.format_secondary_text(message)
     dialog.run()
@@ -208,7 +210,7 @@ def show_warning_dialog(parent: Optional[Gtk.Window], title: str, message: str) 
         destroy_with_parent=True,
         message_type=Gtk.MessageType.WARNING,
         buttons=Gtk.ButtonsType.OK_CANCEL,
-        text=title
+        text=title,
     )
     dialog.format_secondary_text(message)
 
@@ -232,7 +234,7 @@ def show_info_dialog(parent: Optional[Gtk.Window], title: str, message: str):
         destroy_with_parent=True,
         message_type=Gtk.MessageType.INFO,
         buttons=Gtk.ButtonsType.OK,
-        text=title
+        text=title,
     )
     dialog.format_secondary_text(message)
     dialog.run()

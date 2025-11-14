@@ -17,7 +17,7 @@ INITIAL_SYNC_DELAY_SECONDS = 10  # Wait before first sync
 
 # Calendar sync constants
 DEFAULT_CALENDAR_DAYS_AHEAD = 7  # Days ahead to sync calendar events
-DEFAULT_CALENDAR_IDS = ['primary']
+DEFAULT_CALENDAR_IDS = ["primary"]
 
 # Retry constants
 DEFAULT_MAX_RETRIES = 4
@@ -46,8 +46,8 @@ GCAL_MAX_RESULTS = 100
 THREAD_SHUTDOWN_TIMEOUT_SECONDS = 10
 
 # Database constants
-DB_FILENAME = 'whatnow.db'
-ALEMBIC_CONFIG_FILENAME = 'alembic.ini'
+DB_FILENAME = "whatnow.db"
+ALEMBIC_CONFIG_FILENAME = "alembic.ini"
 
 # TagTime statistical constants
 # With Poisson distribution, the fraction of pings tagged with activity X
