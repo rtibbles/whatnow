@@ -108,23 +108,20 @@ whatnow
 
 ### Setup
 
-1. Go to GitHub Settings → Developer Settings → Personal Access Tokens
-2. Create a token with these scopes:
-   - `repo` (Full control of private repositories)
-   - `project` (Full control of projects)
-3. Copy the token
+No manual token creation needed! WhatNow uses OAuth 2.0 for secure authentication.
 
 ### Configuration
 
 1. Open WhatNow settings
 2. Go to the "GitHub" tab
-3. Enter:
-   - **Token**: Your GitHub personal access token
-   - **Organization/User**: Your GitHub username or organization
-   - **Project Number**: The number of your project (visible in project URL)
-4. Save settings
+3. Enter your **Organization/User** and **Project Number**
+4. Click **"Connect GitHub (OAuth)"**
+5. A browser window will open - authorize the app
+6. Done!
 
 WhatNow will sync your current iteration tasks every 30 minutes (configurable).
+
+**Note**: Personal Access Tokens (PAT) are still supported for backward compatibility but are deprecated by GitHub. OAuth is recommended.
 
 ## Optional: Google Calendar Integration
 

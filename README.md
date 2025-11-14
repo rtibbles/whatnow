@@ -131,7 +131,7 @@ whatnow
 
 On first run, you'll need to configure:
 1. Ping interval preferences
-2. GitHub Personal Access Token (optional, with `repo` and `project` scopes)
+2. GitHub connection (optional, simple browser-based OAuth)
 3. Google Calendar connection (optional, simple browser-based OAuth)
 
 ### Running the App
@@ -151,9 +151,12 @@ Configuration is stored in the SQLite database at `~/.local/share/whatnow/whatno
 
 ### GitHub Setup
 
-1. Go to GitHub Settings → Developer Settings → Personal Access Tokens
-2. Create a token with `repo` and `project` scopes
-3. Enter the token in WhatNow settings
+1. Open WhatNow settings (Settings → GitHub tab)
+2. Click "Connect GitHub (OAuth)"
+3. Authorize in your browser when prompted
+4. Done! GitHub Projects will be automatically synced
+
+No additional setup required - the app handles OAuth authentication automatically.
 
 ### Google Calendar Setup
 
