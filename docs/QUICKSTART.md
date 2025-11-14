@@ -2,48 +2,69 @@
 
 ## Installation
 
-### 1. Install System Dependencies
+### Recommended: Ubuntu in Distrobox (All Linux Distros)
+
+This works on **any Linux distribution** including Bazzite, Silverblue, Fedora, Arch, etc.
+
+```bash
+# 1. Create Ubuntu container
+distrobox create --name whatnow --image ubuntu:22.04
+
+# 2. Enter container
+distrobox enter whatnow
+
+# 3. Install system dependencies (inside container)
+sudo apt-get update
+sudo apt-get install -y python3 python3-pip python3-gi python3-gi-cairo gir1.2-gtk-3.0
+
+# 4. Clone WhatNow
+git clone https://github.com/yourusername/whatnow.git
+cd whatnow
+
+# 5. Install WhatNow
+pip install -e .
+```
+
+**That's it!** The GUI will appear on your desktop when you run it.
+
+### Alternative: Native Installation
+
+<details>
+<summary>Click if you prefer native installation on your host system</summary>
 
 **Ubuntu/Debian:**
 ```bash
 sudo apt-get install python3 python3-pip python3-gi python3-gi-cairo gir1.2-gtk-3.0
+git clone https://github.com/yourusername/whatnow.git
+cd whatnow
+pip install -e .
 ```
 
-**Fedora (Traditional):**
+**Fedora:**
 ```bash
-sudo dnf install python3 python3-pip python3-gobject gtk3 python3-cairo-devel pkg-config gcc
+sudo dnf install python3 python3-pip python3-gobject gtk3
+git clone https://github.com/yourusername/whatnow.git
+cd whatnow
+pip install -e .
 ```
 
-**Fedora Atomic (Bazzite/Silverblue/Kinoite):**
-
-*Option 1: Using Distrobox (Recommended for development):*
+**Arch:**
 ```bash
-# Create development container
-distrobox create --name whatnow-dev --image fedora:39
-distrobox enter whatnow-dev
-
-# Inside container
-sudo dnf install python3 python3-pip python3-gobject gtk3 python3-cairo-devel pkg-config gcc
-```
-
-*Option 2: Layer packages on host (requires reboot):*
-```bash
-rpm-ostree install python3-gobject gtk3 python3-cairo-devel pkg-config gcc
-systemctl reboot
+sudo pacman -S python python-pip python-gobject gtk3
+git clone https://github.com/yourusername/whatnow.git
+cd whatnow
+pip install -e .
 ```
 
 **macOS:**
 ```bash
 brew install python3 pygobject3 gtk+3
-```
-
-### 2. Install WhatNow
-
-```bash
 git clone https://github.com/yourusername/whatnow.git
 cd whatnow
 pip install -e .
 ```
+
+</details>
 
 ## First Run
 

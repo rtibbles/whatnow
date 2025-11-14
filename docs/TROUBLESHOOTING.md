@@ -4,113 +4,56 @@
 
 ### Installation Issues
 
-#### "No module named 'gi'" on Bazzite/Fedora Atomic
+#### "No module named 'gi'" or GTK errors
 
-**Problem**: PyGObject (gi) not available in atomic system or Homebrew installation incomplete.
+**Problem**: PyGObject or GTK not installed.
 
-**Solution 1: Use Distrobox (Recommended)**:
-
-*Note: GUI apps work perfectly in Distrobox - display and GPU are passed through automatically.*
+**Solution: Use Ubuntu in Distrobox (works on any Linux):**
 
 ```bash
-# Create Fedora container
-distrobox create --name whatnow-dev --image fedora:39
-distrobox enter whatnow-dev
+# Create Ubuntu container
+distrobox create --name whatnow --image ubuntu:22.04
+distrobox enter whatnow
 
-# Inside container, install all dependencies
-sudo dnf install python3 python3-pip python3-gobject gtk3 \
-                 python3-cairo-devel pkg-config gcc gobject-introspection-devel
+# Install all dependencies
+sudo apt-get update
+sudo apt-get install -y python3 python3-pip python3-gi python3-gi-cairo gir1.2-gtk-3.0
+
+# Test GTK works (GUI should be possible)
+python3 -c "import gi; gi.require_version('Gtk', '3.0'); from gi.repository import Gtk; print('GTK OK!')"
 
 # Install WhatNow
-pip install -e .
-
-# Test it works (GUI should appear on your desktop)
-python -c "import gi; gi.require_version('Gtk', '3.0'); from gi.repository import Gtk; print('GTK OK!')"
-```
-
-**Solution 2: Layer packages on host**:
-```bash
-# Layer GTK and build tools
-rpm-ostree install python3-gobject gtk3 python3-cairo-devel \
-                   pkg-config gcc gobject-introspection-devel
-
-# Reboot to apply changes
-systemctl reboot
-
-# After reboot
-pip install --user -e .
-```
-
-**Solution 3: Fix Homebrew GTK** (if you started with Homebrew):
-```bash
-# Ensure all dependencies are present
-brew install pygobject3 gtk+3 cairo pkg-config
-
-# Set environment variables for build
-export PKG_CONFIG_PATH="/home/linuxbrew/.linuxbrew/lib/pkgconfig:$PKG_CONFIG_PATH"
-export LD_LIBRARY_PATH="/home/linuxbrew/.linuxbrew/lib:$LD_LIBRARY_PATH"
-export GI_TYPELIB_PATH="/home/linuxbrew/.linuxbrew/lib/girepository-1.0:$GI_TYPELIB_PATH"
-
-# Try installing again
+cd /path/to/whatnow
 pip install -e .
 ```
 
-#### "No module named 'gi'" (Other Systems)
+This works on **all Linux distributions** including Bazzite, Silverblue, Fedora, Arch, etc.
+The GUI automatically appears on your desktop with full GPU support.
 
-**Problem**: PyGObject (gi) not installed or not found.
+<details>
+<summary>Alternative: Native installation (click to expand)</summary>
 
-**Solution**:
+**Ubuntu/Debian:**
 ```bash
-# Ubuntu/Debian
 sudo apt-get install python3-gi python3-gi-cairo gir1.2-gtk-3.0
+```
 
-# Fedora (Traditional)
+**Fedora:**
+```bash
 sudo dnf install python3-gobject gtk3
+```
 
-# macOS
+**Arch:**
+```bash
+sudo pacman -S python-gobject gtk3
+```
+
+**macOS:**
+```bash
 brew install pygobject3 gtk+3
 ```
 
-#### "cairo/cairo.h: No such file or directory" on Bazzite
-
-**Problem**: Cairo development headers not found during PyGObject compilation.
-
-**Solution (Distrobox)**:
-```bash
-distrobox enter whatnow-dev
-sudo dnf install cairo-devel cairo-gobject-devel
-pip install --force-reinstall pycairo PyGObject
-```
-
-**Solution (Host system)**:
-```bash
-rpm-ostree install cairo-devel cairo-gobject-devel
-systemctl reboot
-```
-
-#### "Namespace Gtk not available"
-
-**Problem**: GTK 3 not installed on system.
-
-**Solution**:
-```bash
-# Ubuntu/Debian
-sudo apt-get install gir1.2-gtk-3.0
-
-# Fedora (Traditional)
-sudo dnf install gtk3
-
-# Fedora Atomic (via Distrobox)
-distrobox enter whatnow-dev
-sudo dnf install gtk3
-
-# Fedora Atomic (layer on host)
-rpm-ostree install gtk3
-systemctl reboot
-
-# macOS
-brew install gtk+3
-```
+</details>
 
 ### Application Issues
 

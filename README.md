@@ -15,13 +15,20 @@ A local-first GTK Python application for activity tracking with TagTime-style Po
 ## Quick Start
 
 ```bash
-# Install system dependencies (Ubuntu/Debian)
-sudo apt-get install python3-gi python3-gi-cairo gir1.2-gtk-3.0
+# Create Ubuntu container (works on any Linux distro)
+distrobox create --name whatnow --image ubuntu:22.04
+distrobox enter whatnow
 
-# Install WhatNow
+# Inside container, install dependencies
+sudo apt-get update
+sudo apt-get install -y python3 python3-pip python3-gi python3-gi-cairo gir1.2-gtk-3.0
+
+# Clone and install WhatNow
+git clone https://github.com/yourusername/whatnow.git
+cd whatnow
 pip install -e .
 
-# Run
+# Run (appears on your desktop automatically)
 whatnow
 ```
 
@@ -47,82 +54,63 @@ Traditional time tracking requires you to remember to start/stop timers. WhatNow
 
 ## Installation
 
-### Prerequisites
+### Recommended: Distrobox (All Linux Distributions)
 
-- Python 3.8+
-- GTK 3
-- pip
-
-### Install
+Works on Bazzite, Silverblue, Fedora, Arch, openSUSE, or any Linux distro:
 
 ```bash
-pip install -e .
-```
+# Create Ubuntu container
+distrobox create --name whatnow --image ubuntu:22.04
+distrobox enter whatnow
 
-Or for development:
+# Inside container, install dependencies
+sudo apt-get update
+sudo apt-get install -y python3 python3-pip python3-gi python3-gi-cairo gir1.2-gtk-3.0
 
-```bash
-pip install -e ".[dev]"
-```
-
-### System Dependencies (Ubuntu/Debian)
-
-```bash
-sudo apt-get install python3-gi python3-gi-cairo gir1.2-gtk-3.0
-```
-
-### System Dependencies (Fedora - Traditional)
-
-```bash
-sudo dnf install python3-gobject gtk3 python3-cairo-devel pkg-config gcc
-```
-
-### System Dependencies (Fedora Atomic - Bazzite/Silverblue/Kinoite)
-
-**Option 1: Using Toolbox/Distrobox (Recommended)**
-
-*Distrobox provides full GUI support - the app runs seamlessly with native graphics.*
-
-```bash
-# Create a development container
-distrobox create --name whatnow-dev --image fedora:39
-
-# Enter the container
-distrobox enter whatnow-dev
-
-# Inside the container, install dependencies
-sudo dnf install python3 python3-pip python3-gobject gtk3 python3-cairo-devel pkg-config gcc
-
-# Clone and install WhatNow
-git clone https://github.com/yourusername/whatnow.git
-cd whatnow
+# Clone and install
+cd /path/to/whatnow  # or clone: git clone <url>
 pip install -e ".[dev]"
 
-# Run (appears on host desktop automatically)
+# Run - GUI appears on your desktop automatically!
 whatnow
 ```
 
-The GUI will appear natively on your desktop with full GPU acceleration. Distrobox
-automatically handles X11/Wayland display passthrough and desktop integration.
+**Why Distrobox?**
+- Works on immutable systems (Bazzite, Silverblue)
+- Full GUI support with GPU acceleration
+- No system modifications needed
+- Same environment for everyone
 
-**Option 2: Layer packages on host (requires reboot)**
+### Alternative: Native Installation
 
+<details>
+<summary>Click to expand native installation instructions</summary>
+
+**Ubuntu/Debian:**
 ```bash
-# Layer GTK and Python packages
-rpm-ostree install python3-gobject gtk3 python3-cairo-devel pkg-config gcc
-
-# Reboot to apply
-systemctl reboot
-
-# After reboot, install WhatNow with pip
-pip install --user -e .
+sudo apt-get install python3-gi python3-gi-cairo gir1.2-gtk-3.0
+pip install -e .
 ```
 
-### System Dependencies (macOS)
+**Fedora:**
+```bash
+sudo dnf install python3-gobject gtk3
+pip install -e .
+```
 
+**Arch:**
+```bash
+sudo pacman -S python-gobject gtk3
+pip install -e .
+```
+
+**macOS:**
 ```bash
 brew install pygobject3 gtk+3
+pip install -e .
 ```
+
+</details>
 
 ## Usage
 
