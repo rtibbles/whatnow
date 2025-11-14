@@ -81,6 +81,8 @@ sudo dnf install python3-gobject gtk3 python3-cairo-devel pkg-config gcc
 
 **Option 1: Using Toolbox/Distrobox (Recommended)**
 
+*Distrobox provides full GUI support - the app runs seamlessly with native graphics.*
+
 ```bash
 # Create a development container
 distrobox create --name whatnow-dev --image fedora:39
@@ -96,9 +98,12 @@ git clone https://github.com/yourusername/whatnow.git
 cd whatnow
 pip install -e ".[dev]"
 
-# Run (exports to host automatically)
+# Run (appears on host desktop automatically)
 whatnow
 ```
+
+The GUI will appear natively on your desktop with full GPU acceleration. Distrobox
+automatically handles X11/Wayland display passthrough and desktop integration.
 
 **Option 2: Layer packages on host (requires reboot)**
 

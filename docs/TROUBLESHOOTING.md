@@ -9,6 +9,9 @@
 **Problem**: PyGObject (gi) not available in atomic system or Homebrew installation incomplete.
 
 **Solution 1: Use Distrobox (Recommended)**:
+
+*Note: GUI apps work perfectly in Distrobox - display and GPU are passed through automatically.*
+
 ```bash
 # Create Fedora container
 distrobox create --name whatnow-dev --image fedora:39
@@ -20,6 +23,9 @@ sudo dnf install python3 python3-pip python3-gobject gtk3 \
 
 # Install WhatNow
 pip install -e .
+
+# Test it works (GUI should appear on your desktop)
+python -c "import gi; gi.require_version('Gtk', '3.0'); from gi.repository import Gtk; print('GTK OK!')"
 ```
 
 **Solution 2: Layer packages on host**:
