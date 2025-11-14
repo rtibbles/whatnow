@@ -23,6 +23,9 @@ distrobox enter whatnow
 sudo apt-get update
 sudo apt-get install -y python3 python3-pip python3-gi python3-gi-cairo gir1.2-gtk-3.0
 
+# Upgrade pip and setuptools (required for pyproject.toml)
+pip install --upgrade pip setuptools wheel
+
 # Clone and install WhatNow
 git clone https://github.com/yourusername/whatnow.git
 cd whatnow
@@ -66,6 +69,9 @@ distrobox enter whatnow
 # Inside container, install dependencies
 sudo apt-get update
 sudo apt-get install -y python3 python3-pip python3-gi python3-gi-cairo gir1.2-gtk-3.0
+
+# Upgrade pip and setuptools (required for pyproject.toml)
+pip install --upgrade pip setuptools wheel
 
 # Clone and install
 cd /path/to/whatnow  # or clone: git clone <url>

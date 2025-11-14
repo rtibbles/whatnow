@@ -19,6 +19,9 @@ distrobox enter whatnow
 sudo apt-get update
 sudo apt-get install -y python3 python3-pip python3-gi python3-gi-cairo gir1.2-gtk-3.0
 
+# Upgrade pip and setuptools (fixes "UNKNOWN" package and editable install issues)
+pip install --upgrade pip setuptools wheel
+
 # Test GTK works (GUI should be possible)
 python3 -c "import gi; gi.require_version('Gtk', '3.0'); from gi.repository import Gtk; print('GTK OK!')"
 
@@ -29,6 +32,36 @@ pip install -e .
 
 This works on **all Linux distributions** including Bazzite, Silverblue, Fedora, Arch, etc.
 The GUI automatically appears on your desktop with full GPU support.
+
+#### Package installs as "UNKNOWN-0.0.0"
+
+**Problem**: Running `pip install .` shows "Successfully installed UNKNOWN-0.0.0" instead of "whatnow-0.1.0"
+
+**Cause**: Old version of setuptools that doesn't fully support modern `pyproject.toml`
+
+**Solution**:
+```bash
+# Upgrade pip, setuptools, and wheel
+pip install --upgrade pip setuptools wheel
+
+# Uninstall the broken package
+pip uninstall UNKNOWN
+
+# Reinstall properly
+pip install -e .  # Use -e for editable/development install
+```
+
+#### "build backend is missing the 'build_editable' hook"
+
+**Problem**: `pip install -e .` fails with editable install error
+
+**Cause**: Old setuptools version (needs ≥64.0 for full PEP 660 support)
+
+**Solution**:
+```bash
+pip install --upgrade pip setuptools wheel
+pip install -e .
+```
 
 <details>
 <summary>Alternative: Native installation (click to expand)</summary>
