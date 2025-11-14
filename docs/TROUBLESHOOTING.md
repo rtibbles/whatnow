@@ -17,7 +17,8 @@ distrobox enter whatnow
 
 # Install all dependencies
 sudo apt-get update
-sudo apt-get install -y python3 python3-pip python3-gi python3-gi-cairo gir1.2-gtk-3.0
+sudo apt-get install -y python3 python3-pip python3-gi python3-gi-cairo gir1.2-gtk-3.0 \
+                       libgirepository1.0-dev gobject-introspection
 
 # Upgrade pip and setuptools (fixes "UNKNOWN" package and editable install issues)
 pip install --upgrade pip setuptools wheel
@@ -63,12 +64,28 @@ pip install --upgrade pip setuptools wheel
 pip install -e .
 ```
 
+#### "libgirepository-2.0.so.0: cannot open shared object file"
+
+**Problem**: Running `whatnow` fails with ImportError about libgirepository
+
+**Cause**: Missing GObject introspection development libraries
+
+**Solution**:
+```bash
+# In distrobox container
+sudo apt-get install -y libgirepository1.0-dev gobject-introspection
+
+# Reinstall if needed
+pip install --force-reinstall PyGObject
+```
+
 <details>
 <summary>Alternative: Native installation (click to expand)</summary>
 
 **Ubuntu/Debian:**
 ```bash
-sudo apt-get install python3-gi python3-gi-cairo gir1.2-gtk-3.0
+sudo apt-get install python3-gi python3-gi-cairo gir1.2-gtk-3.0 \
+                    libgirepository1.0-dev gobject-introspection
 ```
 
 **Fedora:**

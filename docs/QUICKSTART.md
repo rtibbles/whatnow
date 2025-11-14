@@ -15,7 +15,8 @@ distrobox enter whatnow
 
 # 3. Install system dependencies (inside container)
 sudo apt-get update
-sudo apt-get install -y python3 python3-pip python3-gi python3-gi-cairo gir1.2-gtk-3.0
+sudo apt-get install -y python3 python3-pip python3-gi python3-gi-cairo gir1.2-gtk-3.0 \
+                       libgirepository1.0-dev gobject-introspection
 
 # 4. Upgrade pip and setuptools (required for modern pyproject.toml)
 pip install --upgrade pip setuptools wheel
@@ -37,7 +38,8 @@ pip install -e .
 
 **Ubuntu/Debian:**
 ```bash
-sudo apt-get install python3 python3-pip python3-gi python3-gi-cairo gir1.2-gtk-3.0
+sudo apt-get install python3 python3-pip python3-gi python3-gi-cairo gir1.2-gtk-3.0 \
+                    libgirepository1.0-dev gobject-introspection
 git clone https://github.com/yourusername/whatnow.git
 cd whatnow
 pip install -e .

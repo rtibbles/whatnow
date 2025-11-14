@@ -21,7 +21,8 @@ distrobox enter whatnow
 
 # Inside container, install dependencies
 sudo apt-get update
-sudo apt-get install -y python3 python3-pip python3-gi python3-gi-cairo gir1.2-gtk-3.0
+sudo apt-get install -y python3 python3-pip python3-gi python3-gi-cairo gir1.2-gtk-3.0 \
+                       libgirepository1.0-dev gobject-introspection
 
 # Upgrade pip and setuptools (required for pyproject.toml)
 pip install --upgrade pip setuptools wheel
@@ -68,7 +69,8 @@ distrobox enter whatnow
 
 # Inside container, install dependencies
 sudo apt-get update
-sudo apt-get install -y python3 python3-pip python3-gi python3-gi-cairo gir1.2-gtk-3.0
+sudo apt-get install -y python3 python3-pip python3-gi python3-gi-cairo gir1.2-gtk-3.0 \
+                       libgirepository1.0-dev gobject-introspection
 
 # Upgrade pip and setuptools (required for pyproject.toml)
 pip install --upgrade pip setuptools wheel
@@ -94,7 +96,8 @@ whatnow
 
 **Ubuntu/Debian:**
 ```bash
-sudo apt-get install python3-gi python3-gi-cairo gir1.2-gtk-3.0
+sudo apt-get install python3-gi python3-gi-cairo gir1.2-gtk-3.0 \
+                    libgirepository1.0-dev gobject-introspection
 pip install -e .
 ```
 
