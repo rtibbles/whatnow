@@ -68,7 +68,7 @@ pip install -e .
 
 **Problem**: Running `whatnow` fails with ImportError about libgirepository
 
-**Cause**: Missing GObject introspection development libraries
+**Cause 1**: Missing GObject introspection development libraries
 
 **Solution**:
 ```bash
@@ -77,6 +77,21 @@ sudo apt-get install -y libgirepository1.0-dev gobject-introspection
 
 # Reinstall if needed
 pip install --force-reinstall PyGObject
+```
+
+**Cause 2**: Leftover venv from host system interfering
+
+Distrobox shares your home directory, so a `.venv/` created outside distrobox can interfere:
+
+**Solution**:
+```bash
+# Remove any venv directories
+cd /path/to/whatnow
+rm -rf .venv
+
+# Reinstall fresh
+pip install --upgrade pip setuptools wheel
+pip install -e ".[dev]"
 ```
 
 <details>
