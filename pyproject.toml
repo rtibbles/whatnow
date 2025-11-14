@@ -7,7 +7,7 @@ name = "whatnow"
 version = "0.1.0"
 description = "TagTime-style activity tracker with GitHub Projects and Google Calendar integration"
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.10,<3.15"
 license = {text = "MIT"}
 authors = [
     {name = "WhatNow Contributors"}
@@ -17,11 +17,11 @@ classifiers = [
     "Intended Audience :: End Users/Desktop",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
 ]
 
 dependencies = [
@@ -41,22 +41,31 @@ dev = [
     "pytest>=7.0.0",
     "pytest-cov>=4.0.0",
     "pytest-mock>=3.10.0",
-    "black>=22.0.0",
-    "mypy>=0.950",
+    "black>=23.0.0",
+    "isort>=5.12.0",
+    "mypy>=1.0.0",
+    "pre-commit>=3.0.0",
 ]
 
 [project.scripts]
 whatnow = "whatnow.__main__:main"
 
 [tool.setuptools]
-packages = ["whatnow", "whatnow.ui", "whatnow.sync", "whatnow.utils"]
+packages = {find = {}}
+
+[tool.setuptools.package-data]
+whatnow = ["alembic.ini", "alembic/**/*"]
 
 [tool.black]
 line-length = 100
-target-version = ["py38", "py39", "py310", "py311"]
+target-version = ["py310", "py311", "py312", "py313", "py314"]
+
+[tool.isort]
+profile = "black"
+line_length = 100
 
 [tool.mypy]
-python_version = "3.8"
+python_version = "3.10"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = false

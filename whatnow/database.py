@@ -95,11 +95,11 @@ class Database:
             import tempfile
             import shutil
 
-            # Get the project root directory
-            project_root = Path(__file__).parent.parent
+            # Get the package directory where alembic.ini is located
+            package_dir = Path(__file__).parent
 
             # Create Alembic config
-            alembic_cfg = Config(str(project_root / "alembic.ini"))
+            alembic_cfg = Config(str(package_dir / "alembic.ini"))
 
             # Set the database URL
             alembic_cfg.set_main_option("sqlalchemy.url", f"sqlite:///{self.db_path}")
