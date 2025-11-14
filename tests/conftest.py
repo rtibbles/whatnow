@@ -151,7 +151,6 @@ def sample_local_todo():
     return {
         "text": "Fix bug in authentication",
         "tags": ["bug", "priority-high"],
-        "is_active": True,
         "created_at": 1699800000,
     }
 

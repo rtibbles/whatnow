@@ -560,28 +560,25 @@ class Database:
         self,
         text: str,
         tags: Optional[List[str]] = None,
-        is_active: bool = True,
         created_at: Optional[int] = None,
-        completed_at: Optional[int] = None,
     ) -> int:
         """Add a new local TODO.
+
+        TODOs are always created as active and incomplete. To mark complete,
+        use complete_local_todo() or update_local_todo().
 
         Args:
             text: TODO text
             tags: Optional list of tags
-            is_active: Whether the TODO is active (default: True)
-            created_at: Optional creation timestamp (default: current time)
-            completed_at: Optional completion timestamp
+            created_at: Optional creation timestamp (for data import scenarios)
 
         Returns:
             ID of the TODO
         """
         with self.get_session() as session:
-            todo_data = {"text": text, "tags": tags or [], "is_active": is_active}
+            todo_data = {"text": text, "tags": tags or [], "is_active": True}
             if created_at is not None:
                 todo_data["created_at"] = created_at
-            if completed_at is not None:
-                todo_data["completed_at"] = completed_at
             todo = LocalTODO(**todo_data)
             session.add(todo)
             session.commit()

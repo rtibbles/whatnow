@@ -106,11 +106,11 @@ class TestCompletePingWorkflow:
         """Test time analysis over multiple pings."""
         # Create multiple TODOs
         todo1_id = db.add_local_todo(
-            text="Task 1", tags=["coding", "python"], is_active=True, created_at=int(time.time())
+            text="Task 1", tags=["coding", "python"], created_at=int(time.time())
         )
 
         todo2_id = db.add_local_todo(
-            text="Task 2", tags=["meeting", "planning"], is_active=True, created_at=int(time.time())
+            text="Task 2", tags=["meeting", "planning"], created_at=int(time.time())
         )
 
         # Start work session
@@ -335,11 +335,11 @@ class TestEndToEndScenarios:
 
         # Create today's TODOs
         todo1 = db.add_local_todo(
-            text="Review PRs", tags=["code-review", "github"], is_active=True, created_at=base_time
+            text="Review PRs", tags=["code-review", "github"], created_at=base_time
         )
 
         todo2 = db.add_local_todo(
-            text="Write tests", tags=["testing", "python"], is_active=True, created_at=base_time
+            text="Write tests", tags=["testing", "python"], created_at=base_time
         )
 
         # Record pings throughout the day

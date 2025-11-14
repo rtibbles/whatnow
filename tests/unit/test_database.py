@@ -196,12 +196,9 @@ class TestLocalTODOOperations:
         # Add active TODO
         db.add_local_todo(**sample_local_todo)
 
-        # Add completed TODO
-        completed_todo = sample_local_todo.copy()
-        completed_todo["text"] = "Completed task"
-        completed_todo["is_active"] = False
-        completed_todo["completed_at"] = int(time.time())
-        db.add_local_todo(**completed_todo)
+        # Add TODO and mark it completed (proper workflow)
+        completed_id = db.add_local_todo(text="Completed task", tags=sample_local_todo["tags"])
+        db.complete_local_todo(completed_id)
 
         # Get only active
         active_todos = db.get_local_todos(active_only=True)
