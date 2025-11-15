@@ -187,8 +187,8 @@ class TodoManagementWidget(Gtk.Box):
         if response == Gtk.ResponseType.OK:
             data = dialog.get_todo_data()
             if data:
-                text, tags = data
-                self.db.add_local_todo(text, tags)
+                text, tags, urgency, importance = data
+                self.db.add_local_todo(text, tags, urgency, importance)
                 self._refresh_todos()
                 if self.on_refresh:
                     self.on_refresh()
@@ -211,8 +211,10 @@ class TodoManagementWidget(Gtk.Box):
             if response == Gtk.ResponseType.OK:
                 data = dialog.get_todo_data()
                 if data:
-                    text, tags = data
-                    self.db.update_local_todo(todo_id, text=text, tags=tags)
+                    text, tags, urgency, importance = data
+                    self.db.update_local_todo(
+                        todo_id, text=text, tags=tags, urgency=urgency, importance=importance
+                    )
                     self._refresh_todos()
                     if self.on_refresh:
                         self.on_refresh()
@@ -305,6 +307,42 @@ class AddTodoDialog(Gtk.Dialog):
         self.tags_entry.set_placeholder_text("e.g., backend urgent feature")
         content_area.pack_start(self.tags_entry, False, False, 0)
 
+        # Priority section
+        priority_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        priority_box.set_margin_top(10)
+
+        # Urgency
+        urgency_vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
+        urgency_label = Gtk.Label(label="Urgency:", xalign=0)
+        urgency_vbox.pack_start(urgency_label, False, False, 0)
+
+        self.urgency_combo = Gtk.ComboBoxText()
+        self.urgency_combo.append_text("Low")
+        self.urgency_combo.append_text("Medium")
+        self.urgency_combo.append_text("High")
+        self.urgency_combo.append_text("Urgent")
+        self.urgency_combo.set_active(1)  # Default to Medium
+        urgency_vbox.pack_start(self.urgency_combo, False, False, 0)
+
+        priority_box.pack_start(urgency_vbox, True, True, 0)
+
+        # Importance
+        importance_vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
+        importance_label = Gtk.Label(label="Importance:", xalign=0)
+        importance_vbox.pack_start(importance_label, False, False, 0)
+
+        self.importance_combo = Gtk.ComboBoxText()
+        self.importance_combo.append_text("Low")
+        self.importance_combo.append_text("Medium")
+        self.importance_combo.append_text("High")
+        self.importance_combo.append_text("Critical")
+        self.importance_combo.set_active(1)  # Default to Medium
+        importance_vbox.pack_start(self.importance_combo, False, False, 0)
+
+        priority_box.pack_start(importance_vbox, True, True, 0)
+
+        content_area.pack_start(priority_box, False, False, 0)
+
         self.show_all()
         self.text_entry.grab_focus()
 
@@ -312,7 +350,7 @@ class AddTodoDialog(Gtk.Dialog):
         """Get the TODO data.
 
         Returns:
-            Tuple of (text, tags) or None
+            Tuple of (text, tags, urgency, importance) or None
         """
         text = self.text_entry.get_text().strip()
         if not text:
@@ -321,7 +359,11 @@ class AddTodoDialog(Gtk.Dialog):
         tags_text = self.tags_entry.get_text().strip()
         tags = [tag.strip() for tag in tags_text.split() if tag.strip()]
 
-        return (text, tags)
+        # Map combo box selection to numeric values (1-4)
+        urgency = self.urgency_combo.get_active() + 1
+        importance = self.importance_combo.get_active() + 1
+
+        return (text, tags, urgency, importance)
 
 
 class EditTodoDialog(Gtk.Dialog):
@@ -368,6 +410,46 @@ class EditTodoDialog(Gtk.Dialog):
         self.tags_entry.set_text(tags_text)
         content_area.pack_start(self.tags_entry, False, False, 0)
 
+        # Priority section
+        priority_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        priority_box.set_margin_top(10)
+
+        # Urgency
+        urgency_vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
+        urgency_label = Gtk.Label(label="Urgency:", xalign=0)
+        urgency_vbox.pack_start(urgency_label, False, False, 0)
+
+        self.urgency_combo = Gtk.ComboBoxText()
+        self.urgency_combo.append_text("Low")
+        self.urgency_combo.append_text("Medium")
+        self.urgency_combo.append_text("High")
+        self.urgency_combo.append_text("Urgent")
+        # Set current urgency (convert 1-4 to 0-3 index)
+        current_urgency = todo.get("urgency", 2) - 1
+        self.urgency_combo.set_active(current_urgency)
+        urgency_vbox.pack_start(self.urgency_combo, False, False, 0)
+
+        priority_box.pack_start(urgency_vbox, True, True, 0)
+
+        # Importance
+        importance_vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
+        importance_label = Gtk.Label(label="Importance:", xalign=0)
+        importance_vbox.pack_start(importance_label, False, False, 0)
+
+        self.importance_combo = Gtk.ComboBoxText()
+        self.importance_combo.append_text("Low")
+        self.importance_combo.append_text("Medium")
+        self.importance_combo.append_text("High")
+        self.importance_combo.append_text("Critical")
+        # Set current importance (convert 1-4 to 0-3 index)
+        current_importance = todo.get("importance", 2) - 1
+        self.importance_combo.set_active(current_importance)
+        importance_vbox.pack_start(self.importance_combo, False, False, 0)
+
+        priority_box.pack_start(importance_vbox, True, True, 0)
+
+        content_area.pack_start(priority_box, False, False, 0)
+
         self.show_all()
         self.text_entry.grab_focus()
 
@@ -375,7 +457,7 @@ class EditTodoDialog(Gtk.Dialog):
         """Get the TODO data.
 
         Returns:
-            Tuple of (text, tags) or None
+            Tuple of (text, tags, urgency, importance) or None
         """
         text = self.text_entry.get_text().strip()
         if not text:
@@ -384,4 +466,8 @@ class EditTodoDialog(Gtk.Dialog):
         tags_text = self.tags_entry.get_text().strip()
         tags = [tag.strip() for tag in tags_text.split() if tag.strip()]
 
-        return (text, tags)
+        # Map combo box selection to numeric values (1-4)
+        urgency = self.urgency_combo.get_active() + 1
+        importance = self.importance_combo.get_active() + 1
+
+        return (text, tags, urgency, importance)

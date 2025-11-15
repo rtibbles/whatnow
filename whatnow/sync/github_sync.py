@@ -507,6 +507,16 @@ class GitHubSync:
                 if current_iteration and iteration != current_iteration:
                     continue
 
+                # Parse urgency and importance fields
+                urgency_map = {"Low": 1, "Medium": 2, "High": 3, "Urgent": 4}
+                importance_map = {"Low": 1, "Medium": 2, "High": 3, "Critical": 4}
+
+                urgency_str = field_values.get("Urgency")
+                importance_str = field_values.get("Importance")
+
+                urgency = urgency_map.get(urgency_str) if urgency_str else None
+                importance = importance_map.get(importance_str) if importance_str else None
+
                 # Extract labels
                 labels = [label["name"] for label in content.get("labels", {}).get("nodes", [])]
 
@@ -527,6 +537,8 @@ class GitHubSync:
                     "state": content["state"],
                     "project_name": project_title,
                     "iteration": iteration,
+                    "urgency": urgency,
+                    "importance": importance,
                     "assignees": assignees,
                     "labels": labels,
                     "url": content["url"],

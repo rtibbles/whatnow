@@ -10,7 +10,7 @@ from gi.repository import GLib, Gtk, Pango
 
 from ..constants import DEFAULT_PAGE_SIZE, STATUS_MESSAGE_SUCCESS_CLEAR_SECONDS
 from .time_analysis import TimeAnalysisWidget
-from .todo_management import TodoManagementWidget
+from .unified_todos import UnifiedTodosWidget
 
 
 class MainWindow(Gtk.ApplicationWindow):
@@ -78,19 +78,13 @@ class MainWindow(Gtk.ApplicationWindow):
         self.status_context_id = self.statusbar.get_context_id("main")
         vbox.pack_start(self.statusbar, False, False, 0)
 
+        # Create unified TODOs view (GitHub + Local combined)
+        self.unified_todos_widget = UnifiedTodosWidget(db)
+        todos_label = Gtk.Label(label="TODOs")
+        self.notebook.append_page(self.unified_todos_widget, todos_label)
+
         # Create pings view
         self._create_pings_view()
-
-        # Create tasks view
-        self._create_tasks_view()
-
-        # Create calendar view
-        self._create_calendar_view()
-
-        # Create TODO management view
-        self.todo_widget = TodoManagementWidget(db)
-        todo_label = Gtk.Label(label="My TODOs")
-        self.notebook.append_page(self.todo_widget, todo_label)
 
         # Create time analysis view
         self.time_analysis_widget = TimeAnalysisWidget(db)
@@ -180,107 +174,6 @@ class MainWindow(Gtk.ApplicationWindow):
         label = Gtk.Label(label="Activity Pings")
         self.notebook.append_page(vbox, label)
 
-    def _create_tasks_view(self):
-        """Create the GitHub tasks view."""
-        # Container
-        vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
-        vbox.set_border_width(10)
-
-        # Create list store: title, state, iteration, url, id
-        self.tasks_store = Gtk.ListStore(str, str, str, str, str)
-
-        # Create tree view
-        scrolled = Gtk.ScrolledWindow()
-        scrolled.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
-
-        tasks_view = Gtk.TreeView(model=self.tasks_store)
-        tasks_view.set_enable_search(True)
-        tasks_view.set_search_column(0)
-
-        # Title column
-        renderer = Gtk.CellRendererText()
-        renderer.set_property("ellipsize", Pango.EllipsizeMode.END)
-        column = Gtk.TreeViewColumn("Task", renderer, text=0)
-        column.set_resizable(True)
-        column.set_expand(True)
-        tasks_view.append_column(column)
-
-        # State column
-        renderer = Gtk.CellRendererText()
-        column = Gtk.TreeViewColumn("State", renderer, text=1)
-        column.set_resizable(True)
-        tasks_view.append_column(column)
-
-        # Iteration column
-        renderer = Gtk.CellRendererText()
-        column = Gtk.TreeViewColumn("Iteration", renderer, text=2)
-        column.set_resizable(True)
-        tasks_view.append_column(column)
-
-        scrolled.add(tasks_view)
-        vbox.pack_start(scrolled, True, True, 0)
-
-        # Info label
-        self.tasks_info_label = Gtk.Label()
-        self.tasks_info_label.set_markup("<small>No GitHub tasks synced yet</small>")
-        self.tasks_info_label.set_halign(Gtk.Align.START)
-        vbox.pack_start(self.tasks_info_label, False, False, 0)
-
-        # Add to notebook
-        label = Gtk.Label(label="GitHub Tasks")
-        self.notebook.append_page(vbox, label)
-
-    def _create_calendar_view(self):
-        """Create the calendar events view."""
-        # Container
-        vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
-        vbox.set_border_width(10)
-
-        # Create list store: time, summary, location, id
-        self.events_store = Gtk.ListStore(str, str, str, str)
-
-        # Create tree view
-        scrolled = Gtk.ScrolledWindow()
-        scrolled.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
-
-        events_view = Gtk.TreeView(model=self.events_store)
-        events_view.set_enable_search(True)
-        events_view.set_search_column(1)
-
-        # Time column
-        renderer = Gtk.CellRendererText()
-        column = Gtk.TreeViewColumn("Time", renderer, text=0)
-        column.set_resizable(True)
-        column.set_min_width(150)
-        events_view.append_column(column)
-
-        # Summary column
-        renderer = Gtk.CellRendererText()
-        renderer.set_property("ellipsize", Pango.EllipsizeMode.END)
-        column = Gtk.TreeViewColumn("Event", renderer, text=1)
-        column.set_resizable(True)
-        column.set_expand(True)
-        events_view.append_column(column)
-
-        # Location column
-        renderer = Gtk.CellRendererText()
-        renderer.set_property("ellipsize", Pango.EllipsizeMode.END)
-        column = Gtk.TreeViewColumn("Location", renderer, text=2)
-        column.set_resizable(True)
-        events_view.append_column(column)
-
-        scrolled.add(events_view)
-        vbox.pack_start(scrolled, True, True, 0)
-
-        # Info label
-        self.events_info_label = Gtk.Label()
-        self.events_info_label.set_markup("<small>No calendar events synced yet</small>")
-        self.events_info_label.set_halign(Gtk.Align.START)
-        vbox.pack_start(self.events_info_label, False, False, 0)
-
-        # Add to notebook
-        label = Gtk.Label(label="Calendar")
-        self.notebook.append_page(vbox, label)
 
     def _setup_keyboard_shortcuts(self):
         """Set up keyboard shortcuts for the application."""
@@ -361,50 +254,6 @@ class MainWindow(Gtk.ApplicationWindow):
         except Exception as e:
             self.pings_info_label.set_markup(f"<small>Error loading pings: {e}</small>")
 
-    def refresh_tasks(self):
-        """Refresh the tasks list."""
-        try:
-            tasks = self.db.get_github_tasks()
-            self.tasks_store.clear()
-
-            for task in tasks:
-                self.tasks_store.append(
-                    [
-                        task["title"],
-                        task["state"],
-                        task.get("iteration", ""),
-                        task.get("url", ""),
-                        task["id"],
-                    ]
-                )
-
-            self.tasks_info_label.set_markup(f"<small>Showing {len(tasks)} tasks</small>")
-        except Exception as e:
-            self.tasks_info_label.set_markup(f"<small>Error loading tasks: {e}</small>")
-
-    def refresh_events(self):
-        """Refresh the calendar events list."""
-        try:
-            # Get events for next 7 days
-            now = int(datetime.now().timestamp())
-            week_later = now + (7 * 24 * 60 * 60)
-
-            events = self.db.get_calendar_events(now, week_later)
-            self.events_store.clear()
-
-            for event in events:
-                dt = datetime.fromtimestamp(event["start_time"])
-                time_str = dt.strftime("%Y-%m-%d %H:%M")
-
-                self.events_store.append(
-                    [time_str, event["summary"], event.get("location", ""), event["id"]]
-                )
-
-            self.events_info_label.set_markup(
-                f"<small>Showing {len(events)} upcoming events</small>"
-            )
-        except Exception as e:
-            self.events_info_label.set_markup(f"<small>Error loading events: {e}</small>")
 
     def _on_prev_page_clicked(self, button):
         """Handle previous page button click."""
@@ -430,8 +279,8 @@ class MainWindow(Gtk.ApplicationWindow):
         self.show_loading("Refreshing...")
         self.current_page = 0  # Reset to first page on refresh
         self._refresh_pings()
-        self.refresh_tasks()
-        self.refresh_events()
+        if hasattr(self, "unified_todos_widget"):
+            self.unified_todos_widget.refresh()
         self.set_status("Refreshed successfully")
         # Clear status after a few seconds
         GLib.timeout_add_seconds(STATUS_MESSAGE_SUCCESS_CLEAR_SECONDS, self.clear_status)
@@ -440,10 +289,8 @@ class MainWindow(Gtk.ApplicationWindow):
         """Refresh all views."""
         self.current_page = 0  # Reset to first page on refresh
         self._refresh_pings()
-        self.refresh_tasks()
-        self.refresh_events()
-        if hasattr(self, "todo_widget"):
-            self.todo_widget.refresh()
+        if hasattr(self, "unified_todos_widget"):
+            self.unified_todos_widget.refresh()
         if hasattr(self, "time_analysis_widget"):
             self.time_analysis_widget.refresh()
 

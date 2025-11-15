@@ -52,6 +52,12 @@ class GitHubTask(Base):
     state: Mapped[str] = mapped_column(String(50), nullable=False)
     project_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     iteration: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    urgency: Mapped[Optional[int]] = mapped_column(
+        Integer, nullable=True
+    )  # 1=Low, 2=Medium, 3=High, 4=Urgent
+    importance: Mapped[Optional[int]] = mapped_column(
+        Integer, nullable=True
+    )  # 1=Low, 2=Medium, 3=High, 4=Critical
     assignees: Mapped[Optional[List[str]]] = mapped_column(JSON, nullable=True)
     labels: Mapped[Optional[List[str]]] = mapped_column(JSON, nullable=True)
     url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
@@ -145,6 +151,12 @@ class LocalTODO(Base):
     is_active: Mapped[bool] = mapped_column(
         Integer, nullable=False, default=1
     )  # SQLite uses 0/1 for bool
+    urgency: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=2
+    )  # 1=Low, 2=Medium, 3=High, 4=Urgent
+    importance: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=2
+    )  # 1=Low, 2=Medium, 3=High, 4=Critical
     created_at: Mapped[int] = mapped_column(
         Integer, nullable=False, default=lambda: int(datetime.now().timestamp())
     )

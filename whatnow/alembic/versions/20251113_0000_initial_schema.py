@@ -33,6 +33,7 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index(op.f("ix_pings_timestamp"), "pings", ["timestamp"], unique=False)
+    op.create_index(op.f("ix_pings_todo"), "pings", ["todo_id", "todo_type"], unique=False)
 
     # Work sessions table
     op.create_table(
@@ -43,6 +44,9 @@ def upgrade() -> None:
         sa.Column("total_seconds", sa.Integer(), nullable=True),
         sa.PrimaryKeyConstraint("id"),
     )
+    op.create_index(
+        op.f("ix_work_sessions_end_time"), "work_sessions", ["end_time"], unique=False
+    )
 
     # Local TODOs table
     op.create_table(
@@ -51,9 +55,17 @@ def upgrade() -> None:
         sa.Column("text", sa.String(), nullable=False),
         sa.Column("tags", sa.JSON(), nullable=True),
         sa.Column("is_active", sa.Boolean(), nullable=False),
+        sa.Column("urgency", sa.Integer(), nullable=False),  # 1-4: Low, Medium, High, Urgent
+        sa.Column("importance", sa.Integer(), nullable=False),  # 1-4: Low, Medium, High, Critical
         sa.Column("created_at", sa.Integer(), nullable=False),
         sa.Column("completed_at", sa.Integer(), nullable=True),
         sa.PrimaryKeyConstraint("id"),
+    )
+    op.create_index(
+        op.f("ix_local_todos_active"), "local_todos", ["is_active"], unique=False
+    )
+    op.create_index(
+        op.f("ix_local_todos_priority"), "local_todos", ["urgency", "importance"], unique=False
     )
 
     # GitHub tasks table
@@ -65,6 +77,8 @@ def upgrade() -> None:
         sa.Column("state", sa.String(), nullable=False),
         sa.Column("project_name", sa.String(), nullable=True),
         sa.Column("iteration", sa.String(), nullable=True),
+        sa.Column("urgency", sa.Integer(), nullable=True),  # 1-4: Low, Medium, High, Urgent
+        sa.Column("importance", sa.Integer(), nullable=True),  # 1-4: Low, Medium, High, Critical
         sa.Column("assignees", sa.JSON(), nullable=True),
         sa.Column("labels", sa.JSON(), nullable=True),
         sa.Column("url", sa.String(), nullable=True),
@@ -72,6 +86,12 @@ def upgrade() -> None:
         sa.Column("updated_at", sa.Integer(), nullable=True),
         sa.Column("synced_at", sa.Integer(), nullable=False),
         sa.PrimaryKeyConstraint("id"),
+    )
+    op.create_index(
+        op.f("ix_github_tasks_iteration"), "github_tasks", ["iteration"], unique=False
+    )
+    op.create_index(
+        op.f("ix_github_tasks_priority"), "github_tasks", ["urgency", "importance"], unique=False
     )
 
     # Calendar events table
@@ -94,6 +114,9 @@ def upgrade() -> None:
     )
     op.create_index(
         op.f("ix_calendar_events_start_time"), "calendar_events", ["start_time"], unique=False
+    )
+    op.create_index(
+        op.f("ix_calendar_events_time_range"), "calendar_events", ["start_time", "end_time"], unique=False
     )
 
     # Sync metadata table
@@ -121,11 +144,18 @@ def downgrade() -> None:
     """Drop all tables."""
     op.drop_table("config")
     op.drop_table("sync_metadata")
+    op.drop_index(op.f("ix_calendar_events_time_range"), table_name="calendar_events")
     op.drop_index(op.f("ix_calendar_events_start_time"), table_name="calendar_events")
     op.drop_index(op.f("ix_calendar_events_end_time"), table_name="calendar_events")
     op.drop_table("calendar_events")
+    op.drop_index(op.f("ix_github_tasks_priority"), table_name="github_tasks")
+    op.drop_index(op.f("ix_github_tasks_iteration"), table_name="github_tasks")
     op.drop_table("github_tasks")
+    op.drop_index(op.f("ix_local_todos_priority"), table_name="local_todos")
+    op.drop_index(op.f("ix_local_todos_active"), table_name="local_todos")
     op.drop_table("local_todos")
+    op.drop_index(op.f("ix_work_sessions_end_time"), table_name="work_sessions")
     op.drop_table("work_sessions")
+    op.drop_index(op.f("ix_pings_todo"), table_name="pings")
     op.drop_index(op.f("ix_pings_timestamp"), table_name="pings")
     op.drop_table("pings")

@@ -560,6 +560,8 @@ class Database:
         self,
         text: str,
         tags: Optional[List[str]] = None,
+        urgency: int = 2,
+        importance: int = 2,
         created_at: Optional[int] = None,
     ) -> int:
         """Add a new local TODO.
@@ -570,13 +572,21 @@ class Database:
         Args:
             text: TODO text
             tags: Optional list of tags
+            urgency: Urgency level (1=Low, 2=Medium, 3=High, 4=Urgent)
+            importance: Importance level (1=Low, 2=Medium, 3=High, 4=Critical)
             created_at: Optional creation timestamp (for data import scenarios)
 
         Returns:
             ID of the TODO
         """
         with self.get_session() as session:
-            todo_data = {"text": text, "tags": tags or [], "is_active": True}
+            todo_data = {
+                "text": text,
+                "tags": tags or [],
+                "is_active": True,
+                "urgency": urgency,
+                "importance": importance,
+            }
             if created_at is not None:
                 todo_data["created_at"] = created_at
             todo = LocalTODO(**todo_data)
@@ -608,6 +618,8 @@ class Database:
                     "text": t.text,
                     "tags": t.tags or [],
                     "is_active": bool(t.is_active),
+                    "urgency": t.urgency,
+                    "importance": t.importance,
                     "created_at": t.created_at,
                     "completed_at": t.completed_at,
                 }
@@ -632,6 +644,8 @@ class Database:
                     "text": todo.text,
                     "tags": todo.tags or [],
                     "is_active": bool(todo.is_active),
+                    "urgency": todo.urgency,
+                    "importance": todo.importance,
                     "created_at": todo.created_at,
                     "completed_at": todo.completed_at,
                 }
@@ -639,7 +653,12 @@ class Database:
             return None
 
     def update_local_todo(
-        self, todo_id: int, text: Optional[str] = None, tags: Optional[List[str]] = None
+        self,
+        todo_id: int,
+        text: Optional[str] = None,
+        tags: Optional[List[str]] = None,
+        urgency: Optional[int] = None,
+        importance: Optional[int] = None,
     ):
         """Update a local TODO.
 
@@ -647,6 +666,8 @@ class Database:
             todo_id: TODO ID
             text: New text (if provided)
             tags: New tags (if provided)
+            urgency: New urgency level (if provided)
+            importance: New importance level (if provided)
         """
         with self.get_session() as session:
             todo = session.get(LocalTODO, todo_id)
@@ -656,6 +677,10 @@ class Database:
                     todo.text = text
                 if tags is not None:
                     todo.tags = tags
+                if urgency is not None:
+                    todo.urgency = urgency
+                if importance is not None:
+                    todo.importance = importance
                 session.commit()
 
     def complete_local_todo(self, todo_id: int):
@@ -738,6 +763,8 @@ class Database:
                 existing.state = task.get("state", existing.state)
                 existing.project_name = task.get("project_name")
                 existing.iteration = task.get("iteration")
+                existing.urgency = task.get("urgency")
+                existing.importance = task.get("importance")
                 existing.assignees = task.get("assignees", [])
                 existing.labels = task.get("labels", [])
                 existing.url = task.get("url")
@@ -753,6 +780,8 @@ class Database:
                     state=task["state"],
                     project_name=task.get("project_name"),
                     iteration=task.get("iteration"),
+                    urgency=task.get("urgency"),
+                    importance=task.get("importance"),
                     assignees=task.get("assignees", []),
                     labels=task.get("labels", []),
                     url=task.get("url"),
@@ -788,6 +817,8 @@ class Database:
                     "state": t.state,
                     "project_name": t.project_name,
                     "iteration": t.iteration,
+                    "urgency": t.urgency,
+                    "importance": t.importance,
                     "assignees": t.assignees or [],
                     "labels": t.labels or [],
                     "url": t.url,
@@ -820,6 +851,8 @@ class Database:
                 "state": task.state,
                 "project_name": task.project_name,
                 "iteration": task.iteration,
+                "urgency": task.urgency,
+                "importance": task.importance,
                 "assignees": task.assignees or [],
                 "labels": task.labels or [],
                 "url": task.url,
