@@ -26,11 +26,16 @@
             <WorkSessionControl />
           </div>
 
+          <!-- Google Calendar Settings -->
+          <div class="mb-8">
+            <GoogleCalendarSettings />
+          </div>
+
           <!-- Placeholder content -->
           <div class="bg-white rounded-lg shadow p-6">
             <h2 class="text-2xl font-bold text-gray-900 mb-4">Welcome to WhatNow</h2>
             <p class="text-gray-600">
-              Phase 2 & 3 complete! Start a work session above to begin tracking your time with Poisson pings.
+              Phase 2, 3 & 4 complete! Connect your Google Calendar above to sync meetings and events.
             </p>
           </div>
         </div>
@@ -64,6 +69,7 @@ import MainLayout from './components/layout/MainLayout.vue';
 import AppHeader from './components/layout/AppHeader.vue';
 import LoadingSpinner from './components/common/LoadingSpinner.vue';
 import WorkSessionControl from './components/work-session/WorkSessionControl.vue';
+import GoogleCalendarSettings from './components/settings/GoogleCalendarSettings.vue';
 import PingDialog from './components/ping/PingDialog.vue';
 import MissedPingsDialog from './components/ping/MissedPingsDialog.vue';
 
