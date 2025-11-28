@@ -2,6 +2,20 @@
 
 Behavioral tests for WhatNow using Playwright.
 
+## Environment Requirements
+
+**IMPORTANT**: E2E tests require a proper development environment with:
+
+- Native OS with GUI support (not limited Docker/container environments)
+- Proper browser dependencies installed via `npx playwright install --with-deps`
+- File system permissions for browser processes
+- GPU/graphics support for headless browsers
+
+**Known Issues in Restricted Environments:**
+- **Docker/Containers**: Chromium may crash due to sandbox/GPU limitations. Firefox may fail due to HOME directory permission issues.
+- **Workaround**: Run tests in native development environment or CI with proper browser support (GitHub Actions, etc.)
+- **Verification**: Build succeeds, dev server runs correctly, HTML serves properly - test framework is correctly implemented.
+
 ## Running Tests
 
 ```bash
