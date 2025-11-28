@@ -21,29 +21,73 @@
 
       <template #content>
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <!-- Work Session Control -->
+          <div class="mb-8">
+            <WorkSessionControl />
+          </div>
+
+          <!-- Placeholder content -->
           <div class="bg-white rounded-lg shadow p-6">
             <h2 class="text-2xl font-bold text-gray-900 mb-4">Welcome to WhatNow</h2>
             <p class="text-gray-600">
-              Phase 1 setup complete! Database initialized with {{ collectionCount }} collections.
+              Phase 2 & 3 complete! Start a work session above to begin tracking your time with Poisson pings.
             </p>
           </div>
         </div>
       </template>
     </MainLayout>
+
+    <!-- Ping Dialog -->
+    <PingDialog
+      v-if="currentPingIndex !== null && currentPingTime !== null"
+      :ping-index="currentPingIndex"
+      :ping-time="currentPingTime"
+      :show="showPingDialog"
+      @complete="handlePingComplete"
+      @dismiss="dismissPing"
+    />
+
+    <!-- Missed Pings Dialog -->
+    <MissedPingsDialog
+      :missed-pings="missedPings"
+      :show="showMissedPingsDialog"
+      @complete="handleMissedPingsComplete"
+      @dismiss="dismissMissedPings"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
 import { useDatabase } from './composables/useDatabase';
+import { usePoissonScheduler } from './composables/usePoissonScheduler';
 import MainLayout from './components/layout/MainLayout.vue';
 import AppHeader from './components/layout/AppHeader.vue';
 import LoadingSpinner from './components/common/LoadingSpinner.vue';
+import WorkSessionControl from './components/work-session/WorkSessionControl.vue';
+import PingDialog from './components/ping/PingDialog.vue';
+import MissedPingsDialog from './components/ping/MissedPingsDialog.vue';
 
-const { db, isInitialized, initError } = useDatabase();
+const { isInitialized, initError } = useDatabase();
 
-const collectionCount = computed(() => {
-  if (!db.value) return 0;
-  return Object.keys(db.value.collections).length;
-});
+const {
+  currentPingIndex,
+  currentPingTime,
+  showPingDialog,
+  showMissedPingsDialog,
+  missedPings,
+  completePing,
+  completeMissedPings,
+  dismissPing,
+  dismissMissedPings
+} = usePoissonScheduler();
+
+// Handle ping completion
+const handlePingComplete = async (pingIndex: number) => {
+  await completePing(pingIndex);
+};
+
+// Handle missed pings completion
+const handleMissedPingsComplete = async (pingIndices: number[]) => {
+  await completeMissedPings(pingIndices);
+};
 </script>

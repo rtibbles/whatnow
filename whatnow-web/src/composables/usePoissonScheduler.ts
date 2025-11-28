@@ -14,15 +14,19 @@ export function usePoissonScheduler() {
   const isActive = ref(false);
   const nextPingTime = ref<number | null>(null);
   const missedPingCount = ref(0);
+  const missedPings = ref<Array<{ index: number; time: number }>>([]);
   const currentPingIndex = ref<number | null>(null);
+  const currentPingTime = ref<number | null>(null);
   const showPingDialog = ref(false);
+  const showMissedPingsDialog = ref(false);
 
   // Handle ping events from scheduler
   const handlePingEvent = (event: Event) => {
     const customEvent = event as CustomEvent;
-    const { pingIndex } = customEvent.detail;
+    const { pingIndex, pingTime } = customEvent.detail;
 
     currentPingIndex.value = pingIndex;
+    currentPingTime.value = pingTime;
     showPingDialog.value = true;
 
     // Update next ping time
@@ -46,11 +50,10 @@ export function usePoissonScheduler() {
   const checkForMissedPings = () => {
     const missed = scheduler.getMissedPings();
     missedPingCount.value = missed.length;
+    missedPings.value = missed;
 
     if (missed.length > 0) {
-      window.dispatchEvent(new CustomEvent('whatnow:missed-pings', {
-        detail: { missed }
-      }));
+      showMissedPingsDialog.value = true;
     }
   };
 
@@ -107,6 +110,30 @@ export function usePoissonScheduler() {
   const dismissPing = () => {
     showPingDialog.value = false;
     currentPingIndex.value = null;
+    currentPingTime.value = null;
+  };
+
+  // Complete multiple missed pings
+  const completeMissedPings = async (pingIndices: number[]) => {
+    for (const index of pingIndices) {
+      await scheduler.completePing(index);
+    }
+    missedPingCount.value = scheduler.getMissedPings().length;
+    missedPings.value = scheduler.getMissedPings();
+    showMissedPingsDialog.value = false;
+    updateNextPingTime();
+  };
+
+  // Dismiss missed pings dialog
+  const dismissMissedPings = async () => {
+    // Mark all as missed
+    for (const ping of missedPings.value) {
+      await scheduler.markPingMissed(ping.index);
+    }
+    missedPingCount.value = 0;
+    missedPings.value = [];
+    showMissedPingsDialog.value = false;
+    updateNextPingTime();
   };
 
   // Request notification permission
@@ -147,13 +174,18 @@ export function usePoissonScheduler() {
     isActive,
     nextPingTime,
     missedPingCount,
+    missedPings,
     currentPingIndex,
+    currentPingTime,
     showPingDialog,
+    showMissedPingsDialog,
     start,
     stop,
     completePing,
+    completeMissedPings,
     markPingMissed,
     dismissPing,
+    dismissMissedPings,
     checkForMissedPings,
     requestNotificationPermission
   };
