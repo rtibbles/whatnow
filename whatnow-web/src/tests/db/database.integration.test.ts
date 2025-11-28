@@ -68,8 +68,8 @@ describe('Database Initialization', () => {
     const pings = await db.pings.find().exec();
 
     expect(pings).toHaveLength(1);
-    expect(pings[0].tags).toEqual(['coding', 'typescript']);
-    expect(pings[0].notes).toBe('Test ping');
+    expect(pings[0]?.tags).toEqual(['coding', 'typescript']);
+    expect(pings[0]?.notes).toBe('Test ping');
 
     await destroyDatabase();
   });
@@ -91,9 +91,9 @@ describe('Database Initialization', () => {
     const todos = await db.local_todos.find({ selector: { isActive: true } }).exec();
 
     expect(todos).toHaveLength(1);
-    expect(todos[0].text).toBe('Test TODO');
-    expect(todos[0].urgency).toBe(3);
-    expect(todos[0].importance).toBe(4);
+    expect(todos[0]?.text).toBe('Test TODO');
+    expect(todos[0]?.urgency).toBe(3);
+    expect(todos[0]?.importance).toBe(4);
 
     await destroyDatabase();
   });
