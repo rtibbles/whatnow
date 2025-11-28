@@ -1,9 +1,10 @@
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue';
 import { getDatabase } from '../db/database';
 import type { ConfigDocument } from '../db/schemas/config.schema';
 
 /**
  * Composable for reactive config values
+ * Auto-loads the value on mount
  */
 export function useConfig<T = any>(key: string, defaultValue?: T) {
   const value = ref<T | undefined>(defaultValue);
@@ -78,6 +79,11 @@ export function useConfig<T = any>(key: string, defaultValue?: T) {
 
     return () => subscription.unsubscribe();
   };
+
+  // Auto-load on mount
+  onMounted(() => {
+    load();
+  });
 
   return {
     value,

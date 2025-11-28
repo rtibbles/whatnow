@@ -1,5 +1,78 @@
-# Vue 3 + TypeScript + Vite
+# WhatNow Web App
 
-This template should help get you started developing with Vue 3 and TypeScript in Vite. The template uses Vue 3 `<script setup>` SFCs, check out the [script setup docs](https://v3.vuejs.org/api/sfc-script-setup.html#sfc-script-setup) to learn more.
+Vue3 + TypeScript static web app for activity tracking with TagTime Poisson pings.
 
-Learn more about the recommended Project Setup and IDE Support in the [Vue Docs TypeScript Guide](https://vuejs.org/guide/typescript/overview.html#project-setup).
+## Features
+
+- **Local-first architecture** with RxDB (IndexedDB storage)
+- **TagTime-style ping tracking** with Poisson-distributed random pings
+- **Work session management** with automatic time tracking
+- **GitHub Projects integration** via OAuth Device Flow
+- **Google Calendar integration** via PKCE OAuth
+- **Progressive Web App** - installable, works offline
+
+## Tech Stack
+
+- **Vue 3** with Composition API
+- **TypeScript** (strict mode)
+- **RxDB** for reactive local database
+- **Tailwind CSS** + Headless UI
+- **Vite** for build tooling
+- **Vitest** for testing
+
+## Getting Started
+
+```bash
+# Install dependencies
+npm install
+
+# Start development server
+npm run dev
+
+# Run tests
+npm test
+
+# Build for production
+npm run build
+
+# Preview production build
+npm run preview
+```
+
+## Project Structure
+
+```
+src/
+├── db/schemas/          # RxDB database schemas
+├── composables/         # Vue composables
+├── components/          # Vue components
+├── services/            # Business logic (OAuth, sync, scheduler)
+├── utils/               # Utility functions
+└── tests/               # Unit and integration tests
+```
+
+## Configuration
+
+Copy `.env.example` to `.env` and configure:
+
+```env
+VITE_GOOGLE_CLIENT_ID=your-google-client-id
+VITE_GITHUB_CLIENT_ID=your-github-client-id
+```
+
+## Development
+
+```bash
+# Run tests in watch mode
+npm test
+
+# Run linter
+npm run lint
+
+# Format code
+npm run format
+```
+
+## License
+
+See parent project license.
