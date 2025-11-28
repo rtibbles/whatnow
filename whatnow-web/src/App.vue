@@ -31,11 +31,17 @@
             <GoogleCalendarSettings />
           </div>
 
+          <!-- GitHub Settings -->
+          <div class="mb-8">
+            <GitHubSettings />
+          </div>
+
           <!-- Placeholder content -->
           <div class="bg-white rounded-lg shadow p-6">
             <h2 class="text-2xl font-bold text-gray-900 mb-4">Welcome to WhatNow</h2>
             <p class="text-gray-600">
-              Phase 2, 3 & 4 complete! Connect your Google Calendar above to sync meetings and events.
+              Phase 2, 3, 4 & 5 complete! Connect your Google Calendar and GitHub above to sync
+              meetings, events, and assigned issues.
             </p>
           </div>
         </div>
@@ -70,6 +76,7 @@ import AppHeader from './components/layout/AppHeader.vue';
 import LoadingSpinner from './components/common/LoadingSpinner.vue';
 import WorkSessionControl from './components/work-session/WorkSessionControl.vue';
 import GoogleCalendarSettings from './components/settings/GoogleCalendarSettings.vue';
+import GitHubSettings from './components/settings/GitHubSettings.vue';
 import PingDialog from './components/ping/PingDialog.vue';
 import MissedPingsDialog from './components/ping/MissedPingsDialog.vue';
 
