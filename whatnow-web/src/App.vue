@@ -36,12 +36,17 @@
             <GitHubSettings />
           </div>
 
+          <!-- Time Analysis -->
+          <div class="mb-8">
+            <TimeAnalysis />
+          </div>
+
           <!-- Placeholder content -->
           <div class="bg-white rounded-lg shadow p-6">
             <h2 class="text-2xl font-bold text-gray-900 mb-4">Welcome to WhatNow</h2>
             <p class="text-gray-600">
-              Phase 2, 3, 4 & 5 complete! Connect your Google Calendar and GitHub above to sync
-              meetings, events, and assigned issues.
+              Phase 2-7 complete! Connect your Google Calendar and GitHub to sync meetings and
+              tasks. Use Time Analysis to understand your time distribution and export your data.
             </p>
           </div>
         </div>
@@ -77,6 +82,7 @@ import LoadingSpinner from './components/common/LoadingSpinner.vue';
 import WorkSessionControl from './components/work-session/WorkSessionControl.vue';
 import GoogleCalendarSettings from './components/settings/GoogleCalendarSettings.vue';
 import GitHubSettings from './components/settings/GitHubSettings.vue';
+import TimeAnalysis from './components/analysis/TimeAnalysis.vue';
 import PingDialog from './components/ping/PingDialog.vue';
 import MissedPingsDialog from './components/ping/MissedPingsDialog.vue';
 
