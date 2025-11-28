@@ -9,10 +9,9 @@ export default defineConfig({
     vue(),
     VitePWA({
       registerType: 'autoUpdate',
-      // Service worker will be added in Phase 9
-      // strategies: 'injectManifest',
-      // srcDir: 'src',
-      // filename: 'service-worker.ts',
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'service-worker.ts',
       manifest: {
         name: 'WhatNow',
         short_name: 'WhatNow',

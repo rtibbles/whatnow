@@ -1,4 +1,5 @@
 import { GitHubOAuth } from './oauth';
+import { retryWithBackoff, shouldRetryGitHub } from '../../utils/retry';
 
 export interface GitHubIssue {
   id: string;
@@ -37,32 +38,51 @@ export class GitHubGraphQL {
   }
 
   /**
-   * Execute GraphQL query
+   * Execute GraphQL query with retry logic
    */
   private async query<T = any>(query: string, variables: Record<string, any> = {}): Promise<T> {
-    const token = await this.oauth.getAccessToken();
+    return retryWithBackoff(
+      async () => {
+        const token = await this.oauth.getAccessToken();
 
-    const response = await fetch(this.endpoint, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
+        const response = await fetch(this.endpoint, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+            Accept: 'application/json'
+          },
+          body: JSON.stringify({ query, variables })
+        });
+
+        if (!response.ok) {
+          // Attach response for retry logic to check status
+          const error: any = new Error(`GitHub API error: ${response.statusText}`);
+          error.status = response.status;
+          error.headers = response.headers;
+          throw error;
+        }
+
+        const data = await response.json();
+
+        if (data.errors) {
+          throw new Error(`GraphQL errors: ${JSON.stringify(data.errors)}`);
+        }
+
+        return data.data;
       },
-      body: JSON.stringify({ query, variables })
-    });
-
-    if (!response.ok) {
-      throw new Error(`GitHub API error: ${response.statusText}`);
-    }
-
-    const data = await response.json();
-
-    if (data.errors) {
-      throw new Error(`GraphQL errors: ${JSON.stringify(data.errors)}`);
-    }
-
-    return data.data;
+      {
+        maxRetries: 4,
+        initialDelay: 2000,
+        shouldRetry: shouldRetryGitHub,
+        onRetry: (error, attempt, delay) => {
+          console.log(
+            `[GitHub GraphQL] Retry attempt ${attempt} after ${Math.round(delay)}ms:`,
+            error instanceof Error ? error.message : error
+          );
+        }
+      }
+    );
   }
 
   /**

@@ -1,4 +1,5 @@
 import { GoogleCalendarOAuth } from './oauth';
+import { retryWithBackoff, shouldRetryGoogleCalendar } from '../../utils/retry';
 
 /**
  * Google Calendar API response types
@@ -44,40 +45,58 @@ export class GoogleCalendarAPI {
   }
 
   /**
-   * Fetch events from primary calendar
+   * Fetch events from primary calendar with retry logic
    */
   async fetchEvents(
     timeMin: Date,
     timeMax: Date,
     maxResults: number = 100
   ): Promise<GoogleCalendarEvent[]> {
-    const token = await this.oauth.getAccessToken();
+    return retryWithBackoff(
+      async () => {
+        const token = await this.oauth.getAccessToken();
 
-    const url = new URL(`${this.baseUrl}/calendars/primary/events`);
-    url.searchParams.set('timeMin', timeMin.toISOString());
-    url.searchParams.set('timeMax', timeMax.toISOString());
-    url.searchParams.set('maxResults', maxResults.toString());
-    url.searchParams.set('singleEvents', 'true');
-    url.searchParams.set('orderBy', 'startTime');
+        const url = new URL(`${this.baseUrl}/calendars/primary/events`);
+        url.searchParams.set('timeMin', timeMin.toISOString());
+        url.searchParams.set('timeMax', timeMax.toISOString());
+        url.searchParams.set('maxResults', maxResults.toString());
+        url.searchParams.set('singleEvents', 'true');
+        url.searchParams.set('orderBy', 'startTime');
 
-    const response = await fetch(url.toString(), {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Accept': 'application/json'
+        const response = await fetch(url.toString(), {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: 'application/json'
+          }
+        });
+
+        if (!response.ok) {
+          if (response.status === 401) {
+            // Token might be expired, try refreshing
+            const newToken = await this.oauth.refreshAccessToken();
+            return this.fetchEventsWithToken(url.toString(), newToken);
+          }
+          // Attach status for retry logic
+          const error: any = new Error(`Calendar API error: ${response.statusText}`);
+          error.status = response.status;
+          throw error;
+        }
+
+        const data: GoogleCalendarListResponse = await response.json();
+        return data.items || [];
+      },
+      {
+        maxRetries: 4,
+        initialDelay: 2000,
+        shouldRetry: shouldRetryGoogleCalendar,
+        onRetry: (error, attempt, delay) => {
+          console.log(
+            `[Google Calendar API] Retry attempt ${attempt} after ${Math.round(delay)}ms:`,
+            error instanceof Error ? error.message : error
+          );
+        }
       }
-    });
-
-    if (!response.ok) {
-      if (response.status === 401) {
-        // Token might be expired, try refreshing
-        const newToken = await this.oauth.refreshAccessToken();
-        return this.fetchEventsWithToken(url.toString(), newToken);
-      }
-      throw new Error(`Calendar API error: ${response.statusText}`);
-    }
-
-    const data: GoogleCalendarListResponse = await response.json();
-    return data.items || [];
+    );
   }
 
   /**
