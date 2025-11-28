@@ -25,6 +25,9 @@ export function usePWA() {
   const swRegistration = ref<ServiceWorkerRegistration | null>(null);
   const swUpdateAvailable = ref(false);
 
+  // Cleanup refs
+  let updateCheckInterval: number | null = null;
+
   /**
    * Check if app is already installed
    */
@@ -178,13 +181,14 @@ export function usePWA() {
   const applyUpdate = () => {
     if (!swRegistration.value?.waiting) return;
 
-    // Send message to service worker to skip waiting
-    swRegistration.value.waiting.postMessage({ type: 'SKIP_WAITING' });
-
-    // Reload page when new service worker takes control
-    navigator.serviceWorker.addEventListener('controllerchange', () => {
+    // Register listener FIRST to avoid race condition
+    const handleControllerChange = () => {
       window.location.reload();
-    });
+    };
+    navigator.serviceWorker.addEventListener('controllerchange', handleControllerChange, { once: true });
+
+    // Then send message to service worker to skip waiting
+    swRegistration.value.waiting.postMessage({ type: 'SKIP_WAITING' });
   };
 
   /**
@@ -212,7 +216,7 @@ export function usePWA() {
         handleSWUpdate(registration);
 
         // Check for updates every hour
-        setInterval(() => {
+        updateCheckInterval = window.setInterval(() => {
           checkForUpdates();
         }, 60 * 60 * 1000);
       } catch (error) {
@@ -229,6 +233,12 @@ export function usePWA() {
     window.removeEventListener('appinstalled', handleAppInstalled);
     window.removeEventListener('online', handleOnline);
     window.removeEventListener('offline', handleOffline);
+
+    // Clear update check interval to prevent memory leak
+    if (updateCheckInterval !== null) {
+      window.clearInterval(updateCheckInterval);
+      updateCheckInterval = null;
+    }
   });
 
   return {

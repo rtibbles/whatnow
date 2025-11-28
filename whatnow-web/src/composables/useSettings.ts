@@ -205,6 +205,12 @@ export function useSettings() {
    * Enable/disable background sync
    */
   const toggleBackgroundSync = async (enabled: boolean) => {
+    // Prevent concurrent calls
+    if (isLoading.value) {
+      console.warn('Background sync toggle already in progress');
+      return;
+    }
+
     isLoading.value = true;
     error.value = null;
 
