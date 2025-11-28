@@ -386,7 +386,44 @@ const handleImportFile = async (event: Event) => {
   if (file) {
     try {
       const result = await importData(file);
-      alert(`Import successful!\nPings: ${result.pings}\nTODOs: ${result.todos}`);
+
+      // Build detailed message
+      let message = '';
+
+      if (result.hasErrors) {
+        message = '⚠️ Import completed with errors!\n\n';
+        message += `Pings: ${result.pings.imported}/${result.pings.total} imported`;
+        if (result.pings.failed > 0) {
+          message += ` (${result.pings.failed} failed)`;
+        }
+        message += `\nTODOs: ${result.todos.imported}/${result.todos.total} imported`;
+        if (result.todos.failed > 0) {
+          message += ` (${result.todos.failed} failed)`;
+        }
+
+        // Show first few errors
+        if (result.errors.length > 0) {
+          message += '\n\nFirst errors:';
+          const errorPreview = result.errors.slice(0, 5);
+          errorPreview.forEach(err => {
+            const recordType = err.type.toUpperCase();
+            const recordId = err.id ? ` (${err.id})` : ` #${err.index + 1}`;
+            message += `\n• ${recordType}${recordId}: ${err.error}`;
+          });
+
+          if (result.errors.length > 5) {
+            message += `\n... and ${result.errors.length - 5} more errors`;
+          }
+        }
+
+        message += '\n\nCheck browser console for full error details.';
+      } else {
+        message = '✓ Import successful!\n\n';
+        message += `Pings: ${result.pings.imported} imported\n`;
+        message += `TODOs: ${result.todos.imported} imported`;
+      }
+
+      alert(message);
     } catch (err) {
       console.error('Import failed:', err);
     }

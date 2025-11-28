@@ -46,6 +46,28 @@ export interface AppInfo {
   };
 }
 
+export interface ImportError {
+  type: 'ping' | 'todo';
+  index: number;
+  id?: string;
+  error: string;
+}
+
+export interface ImportResult {
+  pings: {
+    total: number;
+    imported: number;
+    failed: number;
+  };
+  todos: {
+    total: number;
+    imported: number;
+    failed: number;
+  };
+  errors: ImportError[];
+  hasErrors: boolean;
+}
+
 const SETTINGS_STORAGE_KEY = 'whatnow_settings';
 const DEFAULT_SETTINGS: AppSettings = {
   defaultPingInterval: 45,
@@ -215,7 +237,7 @@ export class SettingsService {
   /**
    * Import data from JSON
    */
-  async importData(jsonData: string): Promise<{ pings: number; todos: number }> {
+  async importData(jsonData: string): Promise<ImportResult> {
     const db = getDatabase();
 
     let data: any;
@@ -234,33 +256,66 @@ export class SettingsService {
       this.updateSettings(data.settings);
     }
 
+    const errors: ImportError[] = [];
+
     // Import pings
     let pingCount = 0;
+    const totalPings = data.data.pings?.length || 0;
     if (data.data.pings && Array.isArray(data.data.pings)) {
-      for (const ping of data.data.pings) {
+      for (let i = 0; i < data.data.pings.length; i++) {
+        const ping = data.data.pings[i];
         try {
           await db.pings.upsert(ping);
           pingCount++;
         } catch (error) {
-          console.error('Failed to import ping:', error);
+          const errorMsg = error instanceof Error ? error.message : String(error);
+          console.error(`Failed to import ping #${i + 1}:`, errorMsg);
+          errors.push({
+            type: 'ping',
+            index: i,
+            id: ping.id,
+            error: errorMsg
+          });
         }
       }
     }
 
     // Import todos
     let todoCount = 0;
+    const totalTodos = data.data.todos?.length || 0;
     if (data.data.todos && Array.isArray(data.data.todos)) {
-      for (const todo of data.data.todos) {
+      for (let i = 0; i < data.data.todos.length; i++) {
+        const todo = data.data.todos[i];
         try {
           await db.local_todos.upsert(todo);
           todoCount++;
         } catch (error) {
-          console.error('Failed to import todo:', error);
+          const errorMsg = error instanceof Error ? error.message : String(error);
+          console.error(`Failed to import todo #${i + 1}:`, errorMsg);
+          errors.push({
+            type: 'todo',
+            index: i,
+            id: todo.id,
+            error: errorMsg
+          });
         }
       }
     }
 
-    return { pings: pingCount, todos: todoCount };
+    return {
+      pings: {
+        total: totalPings,
+        imported: pingCount,
+        failed: totalPings - pingCount
+      },
+      todos: {
+        total: totalTodos,
+        imported: todoCount,
+        failed: totalTodos - todoCount
+      },
+      errors,
+      hasErrors: errors.length > 0
+    };
   }
 
   /**
