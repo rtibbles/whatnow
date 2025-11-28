@@ -1,5 +1,8 @@
 <template>
   <div class="min-h-screen bg-gray-50">
+    <!-- PWA Install Prompt -->
+    <InstallPrompt />
+
     <!-- Loading state -->
     <div v-if="!isInitialized" class="flex items-center justify-center min-h-screen">
       <LoadingSpinner />
@@ -76,6 +79,9 @@
       @complete="handleMissedPingsComplete"
       @dismiss="dismissMissedPings"
     />
+
+    <!-- Offline Indicator & Update Banner -->
+    <OfflineIndicator />
   </div>
 </template>
 
@@ -92,6 +98,8 @@ import TimeAnalysis from './components/analysis/TimeAnalysis.vue';
 import Settings from './components/settings/Settings.vue';
 import PingDialog from './components/ping/PingDialog.vue';
 import MissedPingsDialog from './components/ping/MissedPingsDialog.vue';
+import InstallPrompt from './components/pwa/InstallPrompt.vue';
+import OfflineIndicator from './components/pwa/OfflineIndicator.vue';
 
 const { isInitialized, initError } = useDatabase();
 

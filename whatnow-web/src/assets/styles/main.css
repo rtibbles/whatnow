@@ -1,3 +1,87 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Global transitions and animations */
+@layer base {
+  * {
+    @apply transition-colors duration-200 ease-in-out;
+  }
+
+  /* Smooth scrolling */
+  html {
+    @apply scroll-smooth;
+  }
+
+  /* Focus ring for accessibility */
+  *:focus-visible {
+    @apply outline-none ring-2 ring-blue-500 ring-offset-2;
+  }
+
+  /* Disable transitions during initial page load */
+  .preload * {
+    @apply !transition-none;
+  }
+}
+
+@layer components {
+  /* Fade transition */
+  .fade-enter-active,
+  .fade-leave-active {
+    @apply transition-opacity duration-300;
+  }
+
+  .fade-enter-from,
+  .fade-leave-to {
+    @apply opacity-0;
+  }
+
+  /* Slide fade transition */
+  .slide-fade-enter-active {
+    @apply transition-all duration-300 ease-out;
+  }
+
+  .slide-fade-leave-active {
+    @apply transition-all duration-200 ease-in;
+  }
+
+  .slide-fade-enter-from {
+    @apply translate-x-5 opacity-0;
+  }
+
+  .slide-fade-leave-to {
+    @apply -translate-x-5 opacity-0;
+  }
+
+  /* Scale transition */
+  .scale-enter-active,
+  .scale-leave-active {
+    @apply transition-all duration-200;
+  }
+
+  .scale-enter-from,
+  .scale-leave-to {
+    @apply scale-95 opacity-0;
+  }
+
+  /* Loading pulse */
+  @keyframes shimmer {
+    0% {
+      background-position: -1000px 0;
+    }
+    100% {
+      background-position: 1000px 0;
+    }
+  }
+
+  .animate-shimmer {
+    animation: shimmer 2s infinite;
+    background: linear-gradient(
+      to right,
+      #f3f4f6 0%,
+      #e5e7eb 50%,
+      #f3f4f6 100%
+    );
+    background-size: 1000px 100%;
+  }
+}
