@@ -25,9 +25,13 @@ export function usePoissonScheduler() {
     const customEvent = event as CustomEvent;
     const { pingIndex, pingTime } = customEvent.detail;
 
+    console.log(`📥 usePoissonScheduler received ping event #${pingIndex}, showing dialog`);
+
     currentPingIndex.value = pingIndex;
     currentPingTime.value = pingTime;
     showPingDialog.value = true;
+
+    console.log(`✅ Dialog state updated: showPingDialog=${showPingDialog.value}, pingIndex=${pingIndex}`);
 
     // Update next ping time
     updateNextPingTime();
@@ -63,12 +67,8 @@ export function usePoissonScheduler() {
   };
 
   // Start scheduler with work session
-  const start = async (averageGapMinutes: number = 45) => {
-    if (!currentSession.value) {
-      throw new Error('No active work session');
-    }
-
-    await scheduler.startWorkSession(currentSession.value.id, averageGapMinutes);
+  const start = async (workSessionId: string, averageGapMinutes: number = 45) => {
+    await scheduler.startWorkSession(workSessionId, averageGapMinutes);
     isActive.value = true;
     updateNextPingTime();
   };

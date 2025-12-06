@@ -69,10 +69,10 @@ const handleStart = async () => {
     notificationPermission.value = permission;
 
     // Start work session
-    await startSession();
+    const session = await startSession();
 
-    // Start ping scheduler
-    await startScheduler(averageGapMinutes.value);
+    // Start ping scheduler with the session ID
+    await startScheduler(session.id, averageGapMinutes.value);
   } catch (error) {
     console.error('Failed to start work session:', error);
     alert('Failed to start work session. Please try again.');

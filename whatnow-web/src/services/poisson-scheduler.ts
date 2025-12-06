@@ -118,7 +118,6 @@ export class PingScheduler {
     // Strategy 3: Periodic checks via service worker
     if (this.supportsPeriodicBackgroundSync()) {
       await this.registerPeriodicSync();
-      console.log('✅ Registered Periodic Background Sync');
     }
   }
 
@@ -216,7 +215,9 @@ export class PingScheduler {
         this.triggerPing(nextIndex);
       }, delay);
 
-      console.log(`Next ping in ${Math.round(delay / 1000 / 60)} minutes`);
+      const minutes = Math.floor(delay / 1000 / 60);
+      const seconds = Math.floor((delay / 1000) % 60);
+      console.log(`⏰ Next ping #${nextIndex} scheduled in ${minutes}m ${seconds}s (at ${new Date(nextPingTime).toLocaleTimeString()})`);
     }
   }
 
@@ -228,6 +229,8 @@ export class PingScheduler {
 
     const pingTime = this.currentSchedule.schedule[pingIndex];
     if (!pingTime) return;
+
+    console.log(`🔔 PING #${pingIndex} triggered! Time: ${new Date(pingTime).toLocaleTimeString()}`);
 
     // Update next ping index
     this.currentSchedule.nextPingIndex = pingIndex + 1;
@@ -241,6 +244,8 @@ export class PingScheduler {
         pingTime
       }
     }));
+
+    console.log(`📤 Emitted 'whatnow:ping' event for ping #${pingIndex}`);
 
     // If tab is hidden, show notification
     if (document.hidden) {
@@ -287,9 +292,11 @@ export class PingScheduler {
         await registration.periodicSync.register('check-ping-schedule', {
           minInterval: 15 * 60 * 1000 // Request every 15 minutes (browser decides actual interval)
         });
+        console.log('✅ Registered Periodic Background Sync');
       }
     } catch (error) {
-      console.error('Periodic sync registration failed:', error);
+      // This is expected in non-PWA contexts or browsers without support
+      console.log('⚠️ Periodic sync not available (will use active timer instead)');
     }
   }
 
