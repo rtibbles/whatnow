@@ -139,37 +139,42 @@ export class PingScheduler {
   private async scheduleNotificationTriggers(): Promise<void> {
     if (!this.currentSchedule) return;
 
-    const registration = await navigator.serviceWorker.ready;
-    const { schedule, completedPings, nextPingIndex } = this.currentSchedule;
+    try {
+      const registration = await navigator.serviceWorker.ready;
+      const { schedule, completedPings, nextPingIndex } = this.currentSchedule;
 
-    // Schedule all future pings
-    for (let i = nextPingIndex; i < schedule.length; i++) {
-      const pingTime = schedule[i];
-      if (!pingTime) continue;
+      // Schedule all future pings
+      for (let i = nextPingIndex; i < schedule.length; i++) {
+        const pingTime = schedule[i];
+        if (!pingTime) continue;
 
-      if (pingTime <= Date.now()) continue; // Already passed
-      if (completedPings.has(i)) continue;  // Already completed
+        if (pingTime <= Date.now()) continue; // Already passed
+        if (completedPings.has(i)) continue;  // Already completed
 
-      // @ts-ignore - TypeScript doesn't have types for Scheduled Notifications API yet
-      await registration.showNotification('WhatNow Ping!', {
-        body: 'What are you working on?',
-        tag: `ping-${this.currentSchedule.sessionId}-${i}`,
-        icon: '/icon-192.png',
-        badge: '/badge-72.png',
-        // @ts-ignore - TypeScript doesn't have types for this yet
-        showTrigger: new TimestampTrigger(pingTime),
-        requireInteraction: true,
-        actions: [
-          { action: 'log', title: 'Log Activity', icon: '/action-log.png' },
-          { action: 'snooze', title: 'Snooze 5min', icon: '/action-snooze.png' }
-        ],
-        data: {
-          type: 'ping',
-          sessionId: this.currentSchedule.sessionId,
-          pingIndex: i,
-          pingTime
-        }
-      });
+        // @ts-expect-error - TypeScript doesn't have types for Scheduled Notifications API yet
+        await registration.showNotification('WhatNow Ping!', {
+          body: 'What are you working on?',
+          tag: `ping-${this.currentSchedule.sessionId}-${i}`,
+          icon: '/icon-192.png',
+          badge: '/badge-72.png',
+          // @ts-expect-error - TypeScript doesn't have types for this yet
+          showTrigger: new TimestampTrigger(pingTime),
+          requireInteraction: true,
+          actions: [
+            { action: 'log', title: 'Log Activity', icon: '/action-log.png' },
+            { action: 'snooze', title: 'Snooze 5min', icon: '/action-snooze.png' }
+          ],
+          data: {
+            type: 'ping',
+            sessionId: this.currentSchedule.sessionId,
+            pingIndex: i,
+            pingTime
+          }
+        });
+      }
+    } catch (error) {
+      console.log('⚠️ Scheduled Notifications API failed (will use active timer instead):', error);
+      // Graceful degradation - active timer will handle pings
     }
   }
 
@@ -286,9 +291,9 @@ export class PingScheduler {
     try {
       const registration = await navigator.serviceWorker.ready;
 
-      // @ts-ignore - TypeScript doesn't have full types
+      // @ts-expect-error - TypeScript doesn't have full types for periodicSync
       if ('periodicSync' in registration) {
-        // @ts-ignore
+        // @ts-expect-error - periodicSync not in ServiceWorkerRegistration types
         await registration.periodicSync.register('check-ping-schedule', {
           minInterval: 15 * 60 * 1000 // Request every 15 minutes (browser decides actual interval)
         });
@@ -384,17 +389,22 @@ export class PingScheduler {
   private async saveSchedule(): Promise<void> {
     if (!this.currentSchedule) return;
 
-    const db = await getDatabase();
+    try {
+      const db = await getDatabase();
 
-    await db.config.upsert({
-      key: 'current_ping_schedule',
-      value: {
-        ...this.currentSchedule,
-        completedPings: Array.from(this.currentSchedule.completedPings),
-        missedPings: Array.from(this.currentSchedule.missedPings)
-      },
-      updatedAt: Date.now()
-    });
+      await db.config.upsert({
+        key: 'current_ping_schedule',
+        value: {
+          ...this.currentSchedule,
+          completedPings: Array.from(this.currentSchedule.completedPings),
+          missedPings: Array.from(this.currentSchedule.missedPings)
+        },
+        updatedAt: Date.now()
+      });
+    } catch (error) {
+      console.error('Failed to save ping schedule:', error);
+      // Schedule will be lost if this fails, but app can continue
+    }
   }
 
   /**
@@ -411,8 +421,8 @@ export class PingScheduler {
     const data = config.value;
     this.currentSchedule = {
       ...data,
-      completedPings: new Set(data.completedPings),
-      missedPings: new Set(data.missedPings)
+      completedPings: new Set(Array.isArray(data.completedPings) ? data.completedPings : []),
+      missedPings: new Set(Array.isArray(data.missedPings) ? data.missedPings : [])
     };
 
     // Resume notifications

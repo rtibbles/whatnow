@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onBeforeUnmount } from 'vue';
 import { useWorkSession } from '../../composables/useWorkSession';
 import { usePoissonScheduler } from '../../composables/usePoissonScheduler';
 
@@ -92,6 +92,14 @@ const handleStop = async () => {
     alert('Failed to stop work session. Please try again.');
   }
 };
+
+// Cleanup on component unmount
+onBeforeUnmount(() => {
+  if (durationInterval) {
+    clearInterval(durationInterval);
+    durationInterval = null;
+  }
+});
 </script>
 
 <template>

@@ -3,11 +3,22 @@ import { PingScheduler } from '../services/poisson-scheduler';
 import { useWorkSession } from './useWorkSession';
 import { useVisibility } from './useVisibility';
 
+// Singleton instance - shared across all component instances
+let schedulerInstance: PingScheduler | null = null;
+
+function getSchedulerInstance(): PingScheduler {
+  if (!schedulerInstance) {
+    schedulerInstance = new PingScheduler();
+  }
+  return schedulerInstance;
+}
+
 /**
  * Composable for managing the Poisson ping scheduler
+ * Uses a singleton instance to prevent duplicate timers
  */
 export function usePoissonScheduler() {
-  const scheduler = new PingScheduler();
+  const scheduler = getSchedulerInstance();
   const { currentSession } = useWorkSession();
   const { isVisible } = useVisibility();
 
